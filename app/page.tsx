@@ -1,5 +1,7 @@
 import Link from "next/link";
 import SignupForm from "./signup-form";
+import CheckoutButton from "./checkout-button";
+import CheckoutBanner from "./checkout-banner";
 import { fetchRecentSupplementRecalls } from "@/lib/recalls";
 
 export const revalidate = 3600;
@@ -73,6 +75,7 @@ export default async function Home() {
 
   return (
     <div className="relative z-10 min-h-screen flex flex-col">
+      <CheckoutBanner />
       {/* Masthead */}
       <header className="border-b-2 border-ink">
         <div className="mx-auto max-w-6xl px-6 md:px-12 py-5 flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.2em] text-ink-muted">
@@ -287,18 +290,18 @@ export default async function Home() {
                     <li key={f}>· {f}</li>
                   ))}
                 </ul>
-                <div className="mt-7">
-                  <SignupForm
+                <div className="mt-auto pt-7">
+                  <CheckoutButton
                     tier={t.tierId}
-                    variant="compact"
-                    className={t.accent ? "[&_input]:!bg-paper/10 [&_input]:!border-paper/30 [&_input]:!text-paper [&_input::placeholder]:!text-paper/40 [&_button]:!bg-recall [&_button]:!text-paper" : ""}
+                    label={`Subscribe · ${t.price}${t.cadence}`}
+                    accent={t.accent}
                   />
                 </div>
               </div>
             ))}
           </div>
           <p className="mt-6 font-mono text-[11px] uppercase tracking-[0.2em] text-ink-muted text-center">
-            Stripe Checkout wires up in a subsequent build · Today, early-access signups only.
+            Stripe Checkout · test mode · use card <span className="text-recall">4242 4242 4242 4242</span> for a dry run.
           </p>
         </div>
       </section>
