@@ -321,7 +321,9 @@ export default async function Home() {
               >
                 Novique.ai
               </Link>{" "}
-              — an automated SaaS factory. LabelWatch is the first vertical.
+              builds practical AI for small businesses — design, implementation,
+              and ongoing care. LabelWatch is that playbook applied to FDA
+              recall intelligence in the supplements vertical.
             </p>
           </div>
           <div>
