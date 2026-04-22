@@ -276,6 +276,13 @@ export default async function Home() {
                   </span>
                 </p>
                 <p
+                  className={`mt-2 font-mono text-[10px] uppercase tracking-[0.25em] ${
+                    t.accent ? "text-amber" : "text-recall"
+                  }`}
+                >
+                  Free for 14 days · cancel anytime
+                </p>
+                <p
                   className={`mt-3 font-body text-sm ${
                     t.accent ? "text-paper/80" : "text-ink-soft"
                   }`}
@@ -294,7 +301,7 @@ export default async function Home() {
                 <div className="mt-auto pt-7">
                   <CheckoutButton
                     tier={t.tierId}
-                    label={`Subscribe · ${t.price}${t.cadence}`}
+                    label="Start 14-day free trial"
                     accent={t.accent}
                   />
                 </div>
@@ -302,7 +309,7 @@ export default async function Home() {
             ))}
           </div>
           <p className="mt-6 font-mono text-[11px] uppercase tracking-[0.2em] text-ink-muted text-center">
-            Stripe Checkout · test mode · use card <span className="text-recall">4242 4242 4242 4242</span> for a dry run.
+            No charge for 14 days — card required to hold your spot · Stripe Checkout · test mode · card <span className="text-recall">4242 4242 4242 4242</span> for a dry run.
           </p>
         </div>
       </section>

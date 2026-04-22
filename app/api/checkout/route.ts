@@ -31,6 +31,7 @@ export async function POST(request: Request) {
       success_url: `${origin}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/?checkout=cancel`,
       subscription_data: {
+        trial_period_days: 14,
         metadata: { tier },
       },
       metadata: { tier },
