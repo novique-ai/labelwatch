@@ -73,6 +73,10 @@ function SectionRule({ label }: { label: string }) {
 export default async function Home() {
   const recalls = await fetchRecentSupplementRecalls(6);
   const portalLoginUrl = process.env.NEXT_PUBLIC_STRIPE_PORTAL_LOGIN_URL;
+  // Feature flag: live checkout is gated behind the product-delivers gate
+  // (see runbooks/shell-corp-product-launch.md §6.0). Until the 6 marketing
+  // claims ship as working code, keep the site in Coming-Soon mode.
+  const liveCheckout = process.env.NEXT_PUBLIC_LIVE_CHECKOUT === "true";
 
   return (
     <div className="relative z-10 min-h-screen flex flex-col">
@@ -114,10 +118,14 @@ export default async function Home() {
               watch on your ingredient category. A CSV audit trail you can hand to
               a regulator. From <span className="font-display font-bold">$39/mo</span>.
             </p>
-            <div className="mt-8">
+            <div id="waitlist" className="mt-8">
               <SignupForm tier="starter" className="max-w-xl" />
               <p className="mt-3 font-mono text-[11px] uppercase tracking-[0.2em] text-ink-muted">
-                No credit card. Launching in 4 weeks. One email when the gates open.
+                {liveCheckout ? (
+                  <>No credit card to join the waitlist — or start a 14-day free trial below.</>
+                ) : (
+                  <>No credit card. Building with founding-cohort operators. One email when LabelWatch opens.</>
+                )}
               </p>
             </div>
           </div>
@@ -299,17 +307,34 @@ export default async function Home() {
                   ))}
                 </ul>
                 <div className="mt-auto pt-7">
-                  <CheckoutButton
-                    tier={t.tierId}
-                    label="Start 14-day free trial"
-                    accent={t.accent}
-                  />
+                  {liveCheckout ? (
+                    <CheckoutButton
+                      tier={t.tierId}
+                      label="Start 14-day free trial"
+                      accent={t.accent}
+                    />
+                  ) : (
+                    <a
+                      href="#waitlist"
+                      className={`block w-full text-center px-5 py-3 font-mono uppercase tracking-widest text-xs border-2 transition-colors duration-200 ${
+                        t.accent
+                          ? "bg-recall text-paper border-recall hover:bg-recall-deep hover:border-recall-deep"
+                          : "bg-ink text-paper border-ink hover:bg-recall hover:border-recall"
+                      }`}
+                    >
+                      Notify me at launch
+                    </a>
+                  )}
                 </div>
               </div>
             ))}
           </div>
           <p className="mt-6 font-mono text-[11px] uppercase tracking-[0.2em] text-ink-muted text-center">
-            No charge for 14 days — card required to hold your spot · Stripe Checkout · test mode · card <span className="text-recall">4242 4242 4242 4242</span> for a dry run.
+            {liveCheckout ? (
+              <>No charge for 14 days — card required to hold your spot · Cancel anytime inside the portal.</>
+            ) : (
+              <>Coming soon. Founding-cohort pricing locked at these rates. Join the waitlist — we&apos;ll email once.</>
+            )}
           </p>
         </div>
       </section>
