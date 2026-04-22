@@ -104,7 +104,7 @@ export async function persistSubscriptionEvent(event: Stripe.Event): Promise<voi
   }
 
   const supabase = getSupabase();
-  const { error } = await supabase.from("labelwatch_subscription_events").insert({
+  const { error } = await supabase.from("subscription_events").insert({
     stripe_event_id: row.stripe_event_id,
     event_type: row.event_type,
     tier: row.tier,

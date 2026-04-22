@@ -25,7 +25,7 @@ export async function POST(request: Request) {
 
   try {
     const supabase = getSupabase();
-    const { error } = await supabase.from("labelwatch_signups").insert({
+    const { error } = await supabase.from("signups").insert({
       email,
       tier_interest: ["starter", "pro", "team"].includes(tier) ? tier : "starter",
       referrer,
