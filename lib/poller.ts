@@ -49,6 +49,7 @@ export async function runPoll(options: PollOptions = {}): Promise<PollResult> {
   const windowDays = options.windowDays ?? DEFAULT_POLL_WINDOW_DAYS;
   const maxPages = options.maxPages ?? DEFAULT_MAX_PAGES;
   const started = Date.now();
+  const startedIso = new Date(started).toISOString();
   const supabase = getSupabase();
 
   const { data: runRow, error: runInsertError } = await supabase
@@ -118,19 +119,17 @@ export async function runPoll(options: PollOptions = {}): Promise<PollResult> {
         const { data: upserted, error: upsertError } = await supabase
           .from("recalls")
           .upsert(payload, { onConflict: "recall_number" })
-          .select("first_seen_at, last_updated_at")
+          .select("first_seen_at")
           .single();
         if (upsertError) {
           throw new Error(
             `recall upsert failed for ${rec.recall_number}: ${upsertError.message}`,
           );
         }
-        // first_seen_at equals last_updated_at on insert; drifts on update.
-        if (
-          upserted &&
-          new Date(upserted.first_seen_at).getTime() ===
-            new Date(upserted.last_updated_at).getTime()
-        ) {
+        // If first_seen_at (DB-generated via DEFAULT now()) is after this run
+        // began, the row was inserted in this run. Otherwise it existed and we
+        // just upserted over it.
+        if (upserted && upserted.first_seen_at >= startedIso) {
           inserted += 1;
         } else {
           updated += 1;
