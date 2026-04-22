@@ -72,6 +72,7 @@ function SectionRule({ label }: { label: string }) {
 
 export default async function Home() {
   const recalls = await fetchRecentSupplementRecalls(6);
+  const portalLoginUrl = process.env.NEXT_PUBLIC_STRIPE_PORTAL_LOGIN_URL;
 
   return (
     <div className="relative z-10 min-h-screen flex flex-col">
@@ -349,6 +350,20 @@ export default async function Home() {
               Research interviews in progress. Supplements-industry operators who
               want input on feature priorities — drop your email above.
             </p>
+            {portalLoginUrl && (
+              <p className="mt-4">
+                <a
+                  href={portalLoginUrl}
+                  className="underline decoration-recall/40 underline-offset-2 hover:decoration-recall"
+                >
+                  Manage your subscription
+                </a>
+                <br />
+                <span className="text-ink-muted">
+                  Existing customers — sign in with the email on your account.
+                </span>
+              </p>
+            )}
           </div>
         </div>
       </section>
