@@ -372,15 +372,15 @@ export default async function Home() {
               Talk to us
             </p>
             <p>
-              <a
-                href="mailto:hello@label.watch"
+              Research interviews in progress. Supplements-industry operators who
+              want input on feature priorities —{" "}
+              <Link
+                href="/contact"
                 className="underline decoration-recall/40 underline-offset-2 hover:decoration-recall"
               >
-                hello@label.watch
-              </a>
-              <br />
-              Research interviews in progress. Supplements-industry operators who
-              want input on feature priorities — drop your email above.
+                send us a message
+              </Link>
+              .
             </p>
             {portalLoginUrl && (
               <p className="mt-4">

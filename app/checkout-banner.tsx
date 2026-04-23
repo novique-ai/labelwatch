@@ -65,7 +65,14 @@ export default function CheckoutBanner() {
           </p>
           {portalError && (
             <p className="mt-2 font-mono text-[10px] uppercase tracking-widest text-recall">
-              Could not open portal ({portalError}). Contact hello@label.watch.
+              Could not open portal ({portalError}).{" "}
+              <a
+                href="/contact"
+                className="underline underline-offset-2 hover:opacity-80"
+              >
+                Send us a message
+              </a>
+              .
             </p>
           )}
         </div>
