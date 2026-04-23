@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { persistSubscriptionEvent } from "@/lib/subscriptions";
+import { upsertCustomerSkeleton } from "@/lib/customers";
+import { getSupabase } from "@/lib/supabase";
 
 export const runtime = "nodejs";
 
@@ -51,6 +53,34 @@ export async function POST(request: Request) {
       { error: "persist_failed", event_id: event.id },
       { status: 500 },
     );
+  }
+
+  // Provision a skeleton customer row on checkout so /onboard has something
+  // to attach a profile to. Failure here is logged but does NOT fail the
+  // webhook: the event was already persisted, Stripe shouldn't retry, and
+  // /onboard will redirect the buyer back if the row is missing.
+  if (event.type === "checkout.session.completed") {
+    try {
+      const supabase = getSupabase();
+      const result = await upsertCustomerSkeleton(
+        supabase,
+        event.data.object as Stripe.Checkout.Session,
+      );
+      if (result) {
+        console.log(
+          `[customer-skeleton] ${result.created ? "created" : "existed"} customer_id=${result.customerId} event_id=${event.id}`,
+        );
+      } else {
+        console.warn(
+          `[customer-skeleton] skipped event_id=${event.id} — missing customer/email/tier`,
+        );
+      }
+    } catch (err) {
+      console.error(
+        `[customer-skeleton] failed for event_id=${event.id}:`,
+        err,
+      );
+    }
   }
 
   return NextResponse.json({ received: true, event_id: event.id });

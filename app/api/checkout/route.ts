@@ -28,7 +28,7 @@ export async function POST(request: Request) {
       line_items: [{ price: priceIdForTier(tier), quantity: 1 }],
       allow_promotion_codes: true,
       billing_address_collection: "auto",
-      success_url: `${origin}/?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${origin}/onboard?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/?checkout=cancel`,
       subscription_data: {
         trial_period_days: 14,
