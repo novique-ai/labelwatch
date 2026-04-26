@@ -22,6 +22,7 @@ import type {
   SeverityPreferences,
   Tier,
 } from "@/types/database.types";
+import { mintAndEmailAuditAccess } from "./audit-access";
 import { appendFirmAliases, findOrCreateFirm } from "./firms";
 
 function tierFromMetadata(meta: Stripe.Metadata | null | undefined): Tier | null {
@@ -192,6 +193,9 @@ export async function finalizeOnboarding(
   if (stampError) {
     throw new Error(`onboarding stamp failed: ${stampError.message}`);
   }
+
+  // Mint + email the audit-access link. Non-fatal on failure.
+  await mintAndEmailAuditAccess(supabase, customer.id);
 
   return { customerId: customer.id, alreadyOnboarded: false };
 }

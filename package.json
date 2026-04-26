@@ -5,9 +5,12 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test": "vitest",
+    "test:run": "vitest run"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.91.1",
     "@supabase/supabase-js": "^2.103.3",
     "clsx": "^2.1.1",
     "motion": "^12.38.0",
@@ -21,7 +24,9 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/expect": "^4.1.5",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.5"
   }
 }

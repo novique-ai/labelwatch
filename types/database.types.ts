@@ -71,3 +71,73 @@ export type CustomerChannelRow = {
 
 // Re-export Stripe event helper for callers that need to narrow webhook payloads.
 export type CheckoutSession = Stripe.Checkout.Session;
+
+// -----------------------------------------------------------------------------
+// Listing Copy Audit (lcaudit) — bead infrastructure-sl26.
+// See sql/006_audit.sql + docs/mvp-roadmap.md.
+// -----------------------------------------------------------------------------
+
+export type AuditStatus = "pending" | "running" | "complete" | "failed";
+export type AuditSeverity = "low" | "medium" | "high";
+export type AuditFindingType =
+  | "claim_drift"
+  | "ingredient_mismatch"
+  | "missing_warning";
+
+export type SfpIngredient = {
+  name: string;
+  amount: string | null;
+  daily_value_pct: string | null;
+};
+
+export type SfpExtract = {
+  ingredients: SfpIngredient[];
+  claims: string[];
+  serving_size: string | null;
+  warnings: string[];
+};
+
+export type ListingClaim = {
+  text: string;
+  line: number;
+};
+
+export type ListingIngredientMention = {
+  name: string;
+  amount: string | null;
+  line: number;
+};
+
+export type ListingExtract = {
+  ingredients: ListingIngredientMention[];
+  claims: ListingClaim[];
+  warnings_surfaced: string[];
+};
+
+export type AuditRunRow = {
+  id: string;
+  customer_id: string;
+  sfp_storage_path: string;
+  listing_text: string;
+  listing_text_sha256: string;
+  status: AuditStatus;
+  error: string | null;
+  finding_count: number;
+  severity_max: AuditSeverity | null;
+  sfp_extract: SfpExtract | null;
+  listing_extract: ListingExtract | null;
+  run_at: string;
+  completed_at: string | null;
+};
+
+export type AuditFindingRow = {
+  id: string;
+  run_id: string;
+  finding_type: AuditFindingType;
+  severity: AuditSeverity;
+  excerpt: string;
+  detail: string | null;
+  sfp_reference: string | null;
+  listing_line: number | null;
+  created_at: string;
+};
