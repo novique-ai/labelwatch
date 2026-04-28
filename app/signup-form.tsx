@@ -9,12 +9,10 @@ type Status = "idle" | "loading" | "success" | "error";
 export default function SignupForm({
   tier = "starter",
   campaign,
-  variant = "primary",
   className = "",
 }: {
   tier?: Tier;
   campaign?: string;
-  variant?: "primary" | "compact";
   className?: string;
 }) {
   const [email, setEmail] = useState("");
@@ -57,98 +55,104 @@ export default function SignupForm({
     }
   }
 
-  if (variant === "compact") {
+  if (status === "success") {
     return (
-      <form onSubmit={onSubmit} className={className}>
-        <div className="flex flex-col sm:flex-row gap-2">
-          <input
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@brand.com"
-            disabled={status === "loading" || status === "success"}
-            className="flex-1 px-4 py-3 bg-paper border border-ink/30 text-ink font-mono text-sm focus:outline-none focus:border-recall focus:ring-1 focus:ring-recall transition-colors"
-          />
-          <button
-            type="submit"
-            disabled={status === "loading" || status === "success"}
-            className="px-5 py-3 bg-ink text-paper font-mono uppercase tracking-wide text-xs hover:bg-recall transition-colors duration-200"
-          >
-            {status === "loading"
-              ? "Adding…"
-              : status === "success"
-                ? "On the list"
-                : "Get early access"}
-          </button>
-        </div>
-        <AnimatePresence>
-          {status === "error" && (
-            <motion.p
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="mt-2 text-recall text-xs font-mono"
-            >
-              {errorMsg}
-            </motion.p>
-          )}
-        </AnimatePresence>
-      </form>
+      <motion.div
+        initial={{ opacity: 0, y: -4 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={className}
+        style={{
+          fontFamily: "var(--font-jetbrains), monospace",
+          fontSize: 12,
+          color: "#5fd07a",
+          letterSpacing: 1,
+          textTransform: "uppercase",
+        }}
+      >
+        Got it — we'll email you when LabelWatch opens.
+      </motion.div>
     );
   }
 
   return (
     <form onSubmit={onSubmit} className={className}>
-      <div className="flex flex-col md:flex-row gap-3 items-stretch">
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          maxWidth: 360,
+        }}
+      >
         <input
           type="email"
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@brand.com"
-          disabled={status === "loading" || status === "success"}
+          disabled={status === "loading"}
           aria-label="Email address"
-          className="flex-1 px-5 py-4 bg-paper border-2 border-ink text-ink font-mono text-base placeholder:text-ink-muted focus:outline-none focus:border-recall transition-colors"
+          style={{
+            flex: 1,
+            padding: "13px 14px",
+            background: "rgba(20,20,18,0.6)",
+            border: "1px solid #2a2a26",
+            color: "#ece5d6",
+            fontFamily: "var(--font-jetbrains), monospace",
+            fontSize: 12,
+            borderRadius: 2,
+            outline: "none",
+            minWidth: 0,
+          }}
+          onFocus={(e) => {
+            e.currentTarget.style.borderColor = "#c63a1f";
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.borderColor = "#2a2a26";
+          }}
         />
         <button
           type="submit"
-          disabled={status === "loading" || status === "success"}
-          className="px-8 py-4 bg-recall text-paper font-mono uppercase tracking-widest text-sm border-2 border-recall hover:bg-recall-deep hover:border-recall-deep transition-colors duration-200 whitespace-nowrap"
+          disabled={status === "loading"}
+          style={{
+            background: status === "loading" ? "#a82e16" : "#c63a1f",
+            color: "#fff",
+            padding: "13px 18px",
+            border: "none",
+            fontFamily: "var(--font-jetbrains), monospace",
+            fontSize: 11,
+            letterSpacing: 1.4,
+            textTransform: "uppercase",
+            fontWeight: 600,
+            cursor: status === "loading" ? "not-allowed" : "pointer",
+            borderRadius: 2,
+            whiteSpace: "nowrap",
+            transition: "background 0.15s ease",
+          }}
+          onMouseEnter={(e) => {
+            if (status !== "loading") e.currentTarget.style.background = "#a82e16";
+          }}
+          onMouseLeave={(e) => {
+            if (status !== "loading") e.currentTarget.style.background = "#c63a1f";
+          }}
         >
-          {status === "loading"
-            ? "Adding to the list…"
-            : status === "success"
-              ? "You're on the list"
-              : "Request early access"}
+          {status === "loading" ? "Adding..." : "Request access →"}
         </button>
       </div>
 
-      <AnimatePresence mode="wait">
-        {status === "success" && (
-          <motion.div
-            key="success"
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            className="mt-4 p-4 border border-ink/20 bg-paper-deep/40"
-          >
-            <p className="font-display text-lg text-ink leading-snug">
-              Thanks. You&apos;re on the wire.
-            </p>
-            <p className="mt-1 text-sm text-ink-muted font-body">
-              We launch in early access in 4 weeks. We&apos;ll send you a single
-              email when the gates open. No drip. No nonsense.
-            </p>
-          </motion.div>
-        )}
+      <AnimatePresence>
         {status === "error" && (
           <motion.p
-            key="error"
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
-            className="mt-3 text-recall text-sm font-mono"
+            style={{
+              marginTop: 8,
+              fontFamily: "var(--font-jetbrains), monospace",
+              fontSize: 10,
+              color: "#c63a1f",
+              textTransform: "uppercase",
+              letterSpacing: 1,
+            }}
           >
             {errorMsg}
           </motion.p>
