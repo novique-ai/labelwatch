@@ -12,6 +12,7 @@ import { getStripe } from "@/lib/stripe";
 import { getSupabase } from "@/lib/supabase";
 import { finalizeOnboarding, upsertCustomerSkeleton } from "@/lib/customers";
 import { runCustomerBackfill } from "@/lib/matcher";
+import { generateSigningSecret } from "@/lib/adapters/http";
 import {
   INGREDIENT_CATEGORIES,
   type ChannelConfig,
@@ -57,7 +58,17 @@ function validateChannel(value: unknown): {
       typeof c.auth_header === "string" && c.auth_header.trim().length > 0
         ? c.auth_header.trim()
         : null;
-    return { type: t, config: { url: c.url, auth_header: authHeader } };
+    // signing_secret: accept caller-supplied if present and well-formed,
+    // otherwise generate (32-byte hex = 64 chars). The HTTP webhook adapter
+    // (vlm7) signs each delivery with HMAC-SHA256 using this secret.
+    const signingSecret =
+      typeof c.signing_secret === "string" && c.signing_secret.length === 64
+        ? c.signing_secret
+        : generateSigningSecret();
+    return {
+      type: t,
+      config: { url: c.url, auth_header: authHeader, signing_secret: signingSecret },
+    };
   }
   // email
   if (typeof c.address !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.address)) {
@@ -194,12 +205,23 @@ export async function POST(request: Request) {
       }
     }
 
+    // Return signing_secret ONCE on first-time onboard for HTTP channels.
+    // Customer must store it; we have no API to retrieve it later (they'd
+    // need to /onboard again to rotate). Re-onboards (alreadyOnboarded=true)
+    // do NOT echo the secret — even though validateChannel() generated one,
+    // the existing channel row's secret is what's actually persisted.
+    const signingSecret =
+      !alreadyOnboarded && channel.type === "http"
+        ? (channel.config as { signing_secret?: string }).signing_secret ?? null
+        : null;
+
     return NextResponse.json({
       ok: true,
       customer_id: customerId,
       already_onboarded: alreadyOnboarded,
       backfill_run_id: backfillRunId,
       backfill_jobs_emitted: backfillJobsEmitted,
+      signing_secret: signingSecret,
     });
   } catch (err) {
     console.error("onboard handler failed:", err);

@@ -32,9 +32,27 @@ export type SeverityPreferences = {
   per_channel?: Record<string, { min_class: SeverityClass }>;
 };
 
+// HTTP webhook channel. signing_secret is server-generated (32 bytes hex,
+// 64 chars) at /onboard for first-time onboards (bead infrastructure-vlm7).
+// Used to compute X-LabelWatch-Signature: sha256=<hex(HMAC-SHA256(body))>.
+// Returned to the customer ONCE on /onboard response — they must store it
+// to verify incoming webhooks. There is no API to retrieve a forgotten
+// secret in v1; the customer would need to /onboard again.
+//
+// Type-wise signing_secret is OPTIONAL because client-side onboarding form
+// code constructs the config without it; the /api/onboard route's
+// validateChannel ALWAYS generates one before persistence. At rest in the
+// DB, every HTTP channel row has signing_secret. The httpAdapter (vlm7)
+// fails-loud non-transient if the field is absent at delivery time.
+export type HttpChannelConfig = {
+  url: string;
+  auth_header: string | null;
+  signing_secret?: string;
+};
+
 export type ChannelConfig =
   | { webhook_url: string } // slack, teams
-  | { url: string; auth_header: string | null } // http
+  | HttpChannelConfig // http
   | { address: string }; // email
 
 export type CustomerRow = {
@@ -224,4 +242,24 @@ export type DeliveryJobRow = {
   sent_at: string | null;
   created_at: string;
   created_by_matcher_run_id: string | null;
+};
+
+// -----------------------------------------------------------------------------
+// Delivery worker — bead infrastructure-vlm7. See sql/008_vlm7.sql.
+// -----------------------------------------------------------------------------
+
+// Adapter return shape. transient=true means schedule retry (per backoff
+// schedule), transient=false means immediate dead_letter (e.g., 401/403 —
+// retrying won't help).
+export type DeliveryOutcome =
+  | { ok: true }
+  | { ok: false; error: string; transient: boolean };
+
+// dlq_alerts dedup table: one row per (customer_channel_id, day) prevents
+// support@novique.ai from getting spammed when the same channel fails
+// repeatedly within a single day.
+export type DlqAlertRow = {
+  customer_channel_id: string;
+  alerted_on: string; // YYYY-MM-DD
+  created_at: string;
 };
