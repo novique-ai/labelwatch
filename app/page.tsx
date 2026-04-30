@@ -419,17 +419,15 @@ export default async function Home() {
           <div>
             <div style={s.eyebrow}>Volume I · Lead story</div>
             <h1 style={s.headline}>
-              Three
+              Amazon's 2026
               <br />
-              weeks
+              testing rule decides
               <br />
-              behind.
+              what stays on shelf.
             </h1>
             <div style={s.headlineSub}>
-              That's the median lag between an FDA enforcement record going
-              public and the free FDA email digest landing in your inbox. Long
-              enough for your co-packer's other client to ship, recall, and
-              trend on Reddit before you've heard the word "Salmonella."
+              LabelWatch scores every SKU against the new requirements — fix
+              the gaps before takedowns hit Q4.
             </div>
           </div>
 
