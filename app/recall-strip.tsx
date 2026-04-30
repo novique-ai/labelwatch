@@ -144,7 +144,7 @@ export default function RecallStrip({
           gap: 8,
         }}
       >
-        <span>● Found this month — you didn't get the FDA email yet</span>
+        <span>● Proof · we caught these 71+ hours ahead of the FDA email</span>
         <span>Showing {shown.length} of {total} · See the full wire →</span>
       </div>
 

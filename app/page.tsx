@@ -66,6 +66,7 @@ const s = {
     minHeight: "100vh",
     display: "flex",
     flexDirection: "column",
+    overflowX: "hidden",
   } as CSSProperties,
 
   topbar: {
@@ -110,12 +111,13 @@ const s = {
   headline: {
     fontFamily: "var(--font-instrument-serif), serif",
     fontWeight: 400,
-    fontSize: 88,
-    lineHeight: 0.95,
-    letterSpacing: -2.5,
+    fontSize: 56,
+    lineHeight: 1.02,
+    letterSpacing: -1.2,
     margin: 0,
     color: "#ece5d6",
     textAlign: "right",
+    textWrap: "balance",
   } as CSSProperties,
 
   headlineSub: {
@@ -188,7 +190,8 @@ const s = {
     letterSpacing: 3,
     textTransform: "uppercase",
     color: "#807a6c",
-    whiteSpace: "nowrap",
+    whiteSpace: "normal",
+    textAlign: "center",
   } as CSSProperties,
 
   wireSection: {
@@ -405,7 +408,7 @@ export default async function Home() {
       {/* Top bar */}
       <header style={s.topbar}>
         <span style={s.brand}>LabelWatch</span>
-        <span>The recall wire for supplement brands</span>
+        <span>Amazon compliance intelligence · supplements</span>
         <span>Vol. I · {TODAY}</span>
       </header>
 
@@ -417,13 +420,9 @@ export default async function Home() {
         >
           {/* Left: typographic headline */}
           <div>
-            <div style={s.eyebrow}>Volume I · Lead story</div>
+            <div style={s.eyebrow}>Amazon · 2026 TIC rule</div>
             <h1 style={s.headline}>
-              Amazon's 2026
-              <br />
-              testing rule decides
-              <br />
-              what stays on shelf.
+              Amazon's 2026 testing rule decides what stays on shelf.
             </h1>
             <div style={s.headlineSub}>
               LabelWatch scores every SKU against the new requirements — fix
@@ -440,14 +439,13 @@ export default async function Home() {
           <div id="waitlist">
             <div style={s.rightEyebrow}>What LabelWatch does</div>
             <div style={s.pitch}>
-              Every FDA dietary-supplement recall — normalized, peer-watched on
-              your category, routed to <em>Slack</em>, <em>Teams</em>, or your
-              webhook, with a CSV audit trail you can hand to a regulator.
+              Score every SKU against Amazon's 2026 TIC rules before listings
+              drop. FDA-recall radar built in, peer-watched, routed to{" "}
+              <em>Slack</em>, <em>Teams</em>, or webhook.
             </div>
             <div style={s.subPitch}>
-              From $39/mo. The intelligence layer on top of openFDA, built for
-              Shopify-tier supplement brands — not the $500/mo enterprise
-              platforms.
+              From $39/mo. Compliance intelligence for Shopify-tier supplement
+              brands — not the $500/mo enterprise platforms.
             </div>
             <div style={{ marginTop: 28 }}>
               <SignupForm tier="starter" />
@@ -784,9 +782,10 @@ export default async function Home() {
             gap: 40px !important;
           }
           .hero-grid > div:first-child h1 {
-            font-size: 56px !important;
+            font-size: 40px !important;
             text-align: left !important;
-            letter-spacing: -1.5px !important;
+            letter-spacing: -0.8px !important;
+            line-height: 1.06 !important;
           }
           .hero-grid > div:first-child > div:first-child {
             text-align: left !important;
