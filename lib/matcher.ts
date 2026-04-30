@@ -12,6 +12,7 @@
 // advisory lock prevents most overlap; the UNIQUE is the safety net for
 // pre-lock race windows or future code paths that bypass the matcher cron.
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabase } from "./supabase";
 import { normalizeFirmName } from "./firms";
 import {
@@ -33,6 +34,16 @@ import type {
   CustomerRow,
   RecallRow,
 } from "@/types/database.types";
+
+const NEW_CUSTOMER_BACKFILL_DAYS_DEFAULT = 180;
+
+function parseNewCustomerBackfillDays(): number {
+  const raw = process.env.MATCHER_NEW_CUSTOMER_BACKFILL_DAYS;
+  if (!raw) return NEW_CUSTOMER_BACKFILL_DAYS_DEFAULT;
+  const n = parseInt(raw, 10);
+  if (Number.isNaN(n) || n <= 0) return NEW_CUSTOMER_BACKFILL_DAYS_DEFAULT;
+  return n;
+}
 
 const ADVISORY_LOCK_KEY = "labelwatch_matcher";
 
@@ -225,6 +236,178 @@ async function tryAdvisoryLock(
   // v1: always succeed. UNIQUE on delivery_jobs is the safety net for
   // overlapping runs. Hardening to real advisory lock is MVP2 (see TODO).
   return true;
+}
+
+// Per-customer onboarding backfill — bead infrastructure-xv3f.
+//
+// Run ONCE per new customer at the end of /api/onboard. Scans the last
+// MATCHER_NEW_CUSTOMER_BACKFILL_DAYS days of recalls (default 180) scoped
+// to a single customer's profile + enabled channels, emits delivery_jobs
+// for every match. Idempotent: UNIQUE (recall_id, customer_channel_id)
+// dedups against any future global cron pass.
+//
+// Crucially this does NOT advance the global watermark — it writes a
+// matcher_runs row with `last_processed_first_seen_at = null` so the
+// global cron's getWatermark() (which filters that column null) ignores it.
+// Without this, a per-customer backfill of 180d would skip those recalls
+// for ALL OTHER customers on the next global pass.
+//
+// Errors are caught and converted to a `status=error` matcher_runs row.
+// The caller (/api/onboard) treats this as best-effort: onboarding still
+// succeeds even if the backfill failed; the global cron eventually catches
+// the customer up on its 7d cadence (within the backfill window for very
+// recent recalls).
+export async function runCustomerBackfill(
+  customerId: string,
+  options?: { backfillDays?: number; supabase?: SupabaseClient },
+): Promise<MatcherResult> {
+  const supabase = options?.supabase ?? getSupabase();
+  const days = options?.backfillDays ?? parseNewCustomerBackfillDays();
+  const startMs = Date.now();
+  const windowStart = new Date(Date.now() - days * 86_400_000).toISOString();
+
+  const runId = await createMatcherRunPending(supabase);
+
+  let scanned = 0;
+  let matched = 0;
+  let deadLetter = 0;
+  let jobsEmitted = 0;
+  let jobsConflicted = 0;
+
+  try {
+    const ctx = await fetchEligibleCustomerById(supabase, customerId);
+    if (!ctx) {
+      // Customer not eligible (no profile, no enabled channels, or not
+      // onboarded). Close cleanly with scanned=0; nothing to do.
+      await completeMatcherRun(supabase, runId, {
+        status: "ok",
+        scanned: 0,
+        matched: 0,
+        jobsEmitted: 0,
+        deadLetter: 0,
+        durationMs: Date.now() - startMs,
+        watermark: null, // intentional — do not advance global watermark
+      });
+      return {
+        skipped: false,
+        runId,
+        status: "ok",
+        scanned: 0,
+        matched: 0,
+        jobsEmitted: 0,
+        jobsConflicted: 0,
+        deadLetter: 0,
+        durationMs: Date.now() - startMs,
+        watermark: null,
+      };
+    }
+
+    const { data: recalls, error: recallsErr } = await supabase
+      .from("recalls")
+      .select(
+        "id, recall_number, firm_id, firm_name_raw, product_description, reason_for_recall, classification, status, recall_initiation_date, report_date, source, vertical, openfda_raw, first_seen_at, last_updated_at",
+      )
+      .gte("first_seen_at", windowStart)
+      .not("classification", "is", null)
+      .order("first_seen_at", { ascending: true });
+    if (recallsErr) {
+      throw new Error(`recalls fetch (backfill) failed: ${recallsErr.message}`);
+    }
+
+    const recallList = (recalls ?? []) as RecallRow[];
+    const allCandidates: MatchCandidate[] = [];
+
+    for (const recall of recallList) {
+      scanned++;
+      const recallCategories = classifyRecallIngredients(recall);
+      const normalizedFirmName = normalizeFirmName(recall.firm_name_raw ?? "");
+
+      const candidates = matchCandidates({
+        recall,
+        normalizedFirmName,
+        recallCategories,
+        customers: [ctx],
+      });
+
+      if (candidates.length === 0) {
+        deadLetter++;
+      } else {
+        matched++;
+        allCandidates.push(...candidates);
+      }
+    }
+
+    if (allCandidates.length > 0) {
+      const result = await bulkInsertDeliveryJobs(supabase, runId, allCandidates);
+      jobsEmitted = result.inserted;
+      jobsConflicted = result.conflicted;
+    }
+
+    // IMPORTANT: watermark stays null — see function header.
+    await completeMatcherRun(supabase, runId, {
+      status: "ok",
+      scanned,
+      matched,
+      jobsEmitted,
+      deadLetter,
+      durationMs: Date.now() - startMs,
+      watermark: null,
+    });
+
+    return {
+      skipped: false,
+      runId,
+      status: "ok",
+      scanned,
+      matched,
+      jobsEmitted,
+      jobsConflicted,
+      deadLetter,
+      durationMs: Date.now() - startMs,
+      watermark: null,
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    await failMatcherRun(supabase, runId, message, {
+      scanned,
+      matched,
+      jobsEmitted,
+      deadLetter,
+      durationMs: Date.now() - startMs,
+      watermark: null,
+    });
+    throw err;
+  }
+}
+
+async function fetchEligibleCustomerById(
+  supabase: SupabaseClient,
+  customerId: string,
+): Promise<CustomerMatchContext | null> {
+  const { data, error } = await supabase
+    .from("customers")
+    .select("id, customer_profiles(*), customer_channels(*)")
+    .eq("id", customerId)
+    .not("onboarding_completed_at", "is", null)
+    .maybeSingle();
+  if (error) {
+    throw new Error(`customer fetch (backfill) failed: ${error.message}`);
+  }
+  if (!data) return null;
+
+  type EmbedRow = {
+    id: CustomerRow["id"];
+    customer_profiles: CustomerProfileRow[] | CustomerProfileRow | null;
+    customer_channels: CustomerChannelRow[];
+  };
+  const row = data as unknown as EmbedRow;
+  const profile = Array.isArray(row.customer_profiles)
+    ? row.customer_profiles[0]
+    : row.customer_profiles;
+  if (!profile) return null;
+  const enabled = (row.customer_channels ?? []).filter((c) => c.enabled === true);
+  if (enabled.length === 0) return null;
+  return { profile, channels: enabled };
 }
 
 async function fetchEligibleCustomers(

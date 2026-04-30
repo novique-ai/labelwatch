@@ -11,6 +11,7 @@ import type Stripe from "stripe";
 import { getStripe } from "@/lib/stripe";
 import { getSupabase } from "@/lib/supabase";
 import { finalizeOnboarding, upsertCustomerSkeleton } from "@/lib/customers";
+import { runCustomerBackfill } from "@/lib/matcher";
 import {
   INGREDIENT_CATEGORIES,
   type ChannelConfig,
@@ -173,10 +174,32 @@ export async function POST(request: Request) {
       },
     );
 
+    // Per-customer 180-day backfill (bead infrastructure-xv3f). Run synchronously
+    // so the customer sees a consistent state on response. Errors here are
+    // logged but do NOT fail the onboarding — the global matcher cron will
+    // catch the customer up on its forward cadence (within MATCHER_BACKFILL_DAYS=7
+    // for very recent recalls). Skip on re-onboards (alreadyOnboarded=true) since
+    // delivery_jobs UNIQUE would no-op anyway.
+    let backfillRunId: string | null = null;
+    let backfillJobsEmitted = 0;
+    if (!alreadyOnboarded) {
+      try {
+        const result = await runCustomerBackfill(customerId, { supabase });
+        if (!result.skipped) {
+          backfillRunId = result.runId;
+          backfillJobsEmitted = result.jobsEmitted;
+        }
+      } catch (err) {
+        console.error("customer backfill failed (non-fatal):", err);
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       customer_id: customerId,
       already_onboarded: alreadyOnboarded,
+      backfill_run_id: backfillRunId,
+      backfill_jobs_emitted: backfillJobsEmitted,
     });
   } catch (err) {
     console.error("onboard handler failed:", err);
