@@ -141,3 +141,87 @@ export type AuditFindingRow = {
   listing_line: number | null;
   created_at: string;
 };
+
+// -----------------------------------------------------------------------------
+// Recall + Firm rows — produced by the openFDA poller (bead infrastructure-zxv3),
+// consumed by the matcher (bead infrastructure-xv3f).
+// See sql/002_recalls_and_firms.sql.
+// -----------------------------------------------------------------------------
+
+export type RecallClassification = "Class I" | "Class II" | "Class III";
+
+export type RecallRow = {
+  id: string;
+  recall_number: string;
+  firm_id: string | null;
+  firm_name_raw: string;
+  product_description: string | null;
+  reason_for_recall: string | null;
+  classification: RecallClassification | null;
+  status: string | null;
+  recall_initiation_date: string | null;
+  report_date: string | null;
+  source: string;
+  vertical: string;
+  openfda_raw: Record<string, unknown>;
+  first_seen_at: string;
+  last_updated_at: string;
+};
+
+export type FirmRow = {
+  id: string;
+  canonical_name: string;
+  display_name: string;
+  aliases: string[];
+  created_at: string;
+  updated_at: string;
+};
+
+// -----------------------------------------------------------------------------
+// Matcher + delivery — bead infrastructure-xv3f.
+// See sql/007_matcher.sql.
+// Open Brain ADR (queue alternatives): 95e3a497-5c9e-4637-a3a0-23446a678b9d.
+// -----------------------------------------------------------------------------
+
+export type MatcherRunStatus = "running" | "ok" | "partial" | "error";
+
+export type MatchReason = "firm_alias" | "ingredient_category";
+
+export type DeliveryJobStatus =
+  | "pending"
+  | "delivering"
+  | "sent"
+  | "failed"
+  | "dead_letter";
+
+export type MatcherRunRow = {
+  id: string;
+  started_at: string;
+  finished_at: string | null;
+  status: MatcherRunStatus;
+  scanned: number;
+  matched: number;
+  jobs_emitted: number;
+  dead_letter: number;
+  error_message: string | null;
+  duration_ms: number | null;
+  last_processed_first_seen_at: string | null;
+};
+
+export type DeliveryJobRow = {
+  id: string;
+  recall_id: string;
+  customer_id: string;
+  customer_channel_id: string;
+  match_reason: MatchReason;
+  matched_value: string;
+  status: DeliveryJobStatus;
+  attempts: number;
+  last_attempt_at: string | null;
+  next_attempt_at: string;
+  last_error: string | null;
+  severity_class: RecallClassification;
+  sent_at: string | null;
+  created_at: string;
+  created_by_matcher_run_id: string | null;
+};
