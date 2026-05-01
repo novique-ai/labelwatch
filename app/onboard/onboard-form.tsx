@@ -1,10 +1,12 @@
 "use client";
 
-// Three-step onboarding form. Local React state only (no server-side
-// step persistence). Single POST to /api/onboard at the end. Follows the
-// controlled-useState pattern established by app/signup-form.tsx.
+// Three-step onboarding form. State persists in localStorage keyed by
+// session_id so the Slack-OAuth round-trip (which navigates the entire
+// page off-site to slack.com and back) doesn't lose the customer's
+// firm aliases, ingredient categories, or severity choice.
+// Single POST to /api/onboard at the end.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   INGREDIENT_CATEGORIES,
@@ -63,7 +65,13 @@ export default function OnboardForm({
   slackConnection,
 }: Props) {
   const router = useRouter();
-  const [step, setStep] = useState<Step>(1);
+
+  // If we just returned from Slack OAuth, jump straight to Step 3 with the
+  // Slack channel pre-selected. The connected-banner UI then renders.
+  const initialStep: Step = slackConnection ? 3 : 1;
+  const initialChannelType: ChannelType = slackConnection ? "slack" : "email";
+
+  const [step, setStep] = useState<Step>(initialStep);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,13 +86,62 @@ export default function OnboardForm({
 
   // Step 3
   const [channel, setChannel] = useState<ChannelFormState>({
-    type: "email",
+    type: initialChannelType,
     slackWebhook: "",
     teamsWebhook: "",
     httpUrl: "",
     httpAuthHeader: "",
     emailAddress: initialEmail,
   });
+
+  // localStorage persistence keyed by session_id. Survives the Slack
+  // OAuth round-trip (full-page navigation to slack.com and back) and
+  // accidental refreshes mid-onboard. We don't persist `submitting`
+  // or `error` — those are transient.
+  const storageKey = `lw-onboard-${sessionId}`;
+
+  // Restore on mount.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(storageKey);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as {
+        aliases?: string[];
+        categories?: IngredientCategory[];
+        minClass?: SeverityClass;
+        channelType?: ChannelType;
+      };
+      if (Array.isArray(saved.aliases)) setAliases(saved.aliases);
+      if (Array.isArray(saved.categories)) setCategories(new Set(saved.categories));
+      if (saved.minClass) setMinClass(saved.minClass);
+      if (saved.channelType && !slackConnection) {
+        // slackConnection (if set) wins — we just came back from OAuth.
+        setChannel((c) => ({ ...c, type: saved.channelType! }));
+      }
+    } catch (err) {
+      console.warn("onboard-form: localStorage restore failed:", err);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persist on change.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        storageKey,
+        JSON.stringify({
+          aliases,
+          categories: Array.from(categories),
+          minClass,
+          channelType: channel.type,
+        }),
+      );
+    } catch {
+      // Quota / private-browsing — accept the loss silently.
+    }
+  }, [storageKey, aliases, categories, minClass, channel.type]);
 
   function addAlias() {
     const a = aliasInput.trim();
@@ -165,6 +222,15 @@ export default function OnboardForm({
       if (!res.ok || !data.ok) {
         setError(data.error ?? "Something went wrong. Try again in a moment.");
         return;
+      }
+      // Onboarding succeeded — clear persisted form state so a future
+      // /onboard visit (e.g. re-onboard from /account) starts clean.
+      try {
+        if (typeof window !== "undefined") {
+          window.localStorage.removeItem(storageKey);
+        }
+      } catch {
+        // ignore
       }
       // Redirect to dashboard. HTTP-channel signing secret (one-time)
       // is passed forward as a query param so /account can render it
