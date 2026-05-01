@@ -593,7 +593,7 @@ export default async function Home() {
               <div>· Slack + Teams + generic HTTP webhook</div>
               <div>· Firm-name normalization (catches DBAs, subsidiaries)</div>
               <div>· Ingredient-category peer watch</div>
-              <div>· Class I / II / III severity routing</div>
+              <div>· Severity filter — Class I, II, or III</div>
               <div>· 7-day to 12-month searchable history</div>
               <div>· CSV / API export for compliance audits</div>
             </div>
