@@ -160,7 +160,14 @@ export default function OnboardForm({
         setError(data.error ?? "Something went wrong. Try again in a moment.");
         return;
       }
-      router.push("/onboard/complete");
+      // Redirect to dashboard. HTTP-channel signing secret (one-time)
+      // is passed forward as a query param so /account can render it
+      // once. Bead: infrastructure-5ncn (replaces /onboard/complete as
+      // the post-onboard landing).
+      const dest = data.signing_secret
+        ? `/account?signing_secret=${encodeURIComponent(data.signing_secret)}`
+        : "/account";
+      router.push(dest);
     } catch (err) {
       console.error(err);
       setError("Network error. Try again.");

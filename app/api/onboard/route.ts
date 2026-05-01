@@ -13,6 +13,7 @@ import { getSupabase } from "@/lib/supabase";
 import { finalizeOnboarding, upsertCustomerSkeleton } from "@/lib/customers";
 import { runCustomerBackfill } from "@/lib/matcher";
 import { sendOnboardingWelcomeEmail } from "@/lib/onboarding-email";
+import { buildSetCookieHeader } from "@/lib/customer-session";
 import { generateSigningSecret } from "@/lib/adapters/http";
 import {
   INGREDIENT_CATEGORIES,
@@ -239,7 +240,10 @@ export async function POST(request: Request) {
         ? (channel.config as { signing_secret?: string }).signing_secret ?? null
         : null;
 
-    return NextResponse.json({
+    // Set the customer-session cookie so /account can identify a returning
+    // visitor without a session_id query param. See lib/customer-session.ts
+    // for the trust model — this is a soft re-entry pointer, not real auth.
+    const response = NextResponse.json({
       ok: true,
       customer_id: customerId,
       already_onboarded: alreadyOnboarded,
@@ -247,6 +251,8 @@ export async function POST(request: Request) {
       backfill_matched: backfillMatched,
       signing_secret: signingSecret,
     });
+    response.headers.set("Set-Cookie", buildSetCookieHeader(customerId));
+    return response;
   } catch (err) {
     console.error("onboard handler failed:", err);
     return NextResponse.json({ error: "onboarding_failed" }, { status: 500 });
