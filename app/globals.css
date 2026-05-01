@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme inline {
-  /* Dark risk-monitor palette */
+  /* Dark risk-monitor palette (v4 — primary tokens) */
   --color-bg-base: #0e0c0a;
   --color-bg-panel: rgba(10, 10, 8, 0.65);
   --color-bg-card: rgba(20, 20, 18, 0.5);
@@ -15,6 +15,19 @@
   --color-signal-green: #5fd07a;
   --color-class-ii: #3a3a3a;
   --color-class-iii: #8a8a82;
+
+  /* Legacy v3 tokens — kept so /onboard, /audit, /contact, /onboard/complete,
+     and the checkout-banner (still using pre-v4 Tailwind class names) render
+     on the v4 dark surface without per-file restyling. Bead infrastructure-69hu.
+     "paper" used to mean light cream → now the dark base. Subdued surfaces
+     use a slightly-lifted dark. */
+  --color-paper: #0e0c0a;
+  --color-paper-deep: #1a1814;
+  --color-ink: #ece5d6;
+  --color-ink-muted: #9a9485;
+  --color-rule: #2a2a26;
+  --color-recall: #c63a1f;
+  --color-recall-deep: #a82e16;
 
   /* Typography */
   --font-display: var(--font-instrument-serif);
