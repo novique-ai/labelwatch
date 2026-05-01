@@ -14,6 +14,12 @@ import { finalizeOnboarding, upsertCustomerSkeleton } from "@/lib/customers";
 import { runCustomerBackfill } from "@/lib/matcher";
 import { sendOnboardingWelcomeEmail } from "@/lib/onboarding-email";
 import { buildSetCookieHeader } from "@/lib/customer-session";
+import { cookies } from "next/headers";
+import {
+  SLACK_OAUTH_COOKIE_NAME,
+  clearCookieHeader,
+  decodeOAuthCookie,
+} from "@/lib/slack-oauth";
 import { generateSigningSecret } from "@/lib/adapters/http";
 import {
   INGREDIENT_CATEGORIES,
@@ -48,7 +54,15 @@ function validateChannel(value: unknown): {
   const t = type as ChannelType;
   const c = config as Record<string, unknown>;
 
-  if (t === "slack" || t === "teams") {
+  if (t === "slack") {
+    // Slack now requires OAuth (bead infrastructure-e1pt). The webhook URL
+    // is injected server-side from the lw_slack_oauth cookie set by
+    // /api/slack/oauth/callback. Body either carries the magic placeholder
+    // (preferred — explicit signal from /onboard form) or omits webhook_url
+    // entirely. Manual webhook URLs are no longer accepted via this path.
+    return { type: t, config: { webhook_url: "" } };
+  }
+  if (t === "teams") {
     if (typeof c.webhook_url !== "string" || !c.webhook_url.startsWith("https://")) {
       return null;
     }
@@ -152,6 +166,33 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "invalid_channel" }, { status: 400 });
   }
 
+  // Slack channels: pull the webhook URL from the OAuth cookie (HttpOnly,
+  // signed). Cookie is single-use; we clear it on successful inject.
+  // The cookie's sessionId must match the session_id we just verified
+  // with Stripe — otherwise someone could attempt to attach a Slack
+  // workspace to another customer's onboarding flow.
+  let slackOAuthCookieClear = false;
+  if (channel.type === "slack") {
+    const cookieStore = await cookies();
+    const oauth = decodeOAuthCookie(
+      cookieStore.get(SLACK_OAUTH_COOKIE_NAME)?.value,
+    );
+    if (!oauth) {
+      return NextResponse.json(
+        { error: "slack_oauth_required" },
+        { status: 400 },
+      );
+    }
+    if (oauth.sessionId !== sessionId) {
+      return NextResponse.json(
+        { error: "slack_oauth_session_mismatch" },
+        { status: 400 },
+      );
+    }
+    channel.config = { webhook_url: oauth.webhookUrl };
+    slackOAuthCookieClear = true;
+  }
+
   try {
     const supabase = getSupabase();
 
@@ -251,7 +292,10 @@ export async function POST(request: Request) {
       backfill_matched: backfillMatched,
       signing_secret: signingSecret,
     });
-    response.headers.set("Set-Cookie", buildSetCookieHeader(customerId));
+    response.headers.append("Set-Cookie", buildSetCookieHeader(customerId));
+    if (slackOAuthCookieClear) {
+      response.headers.append("Set-Cookie", clearCookieHeader(SLACK_OAUTH_COOKIE_NAME));
+    }
     return response;
   } catch (err) {
     console.error("onboard handler failed:", err);

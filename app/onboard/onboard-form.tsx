@@ -20,6 +20,7 @@ type Props = {
   initialEmail: string;
   initialFirmName: string;
   tier: Tier;
+  slackConnection: { channel: string; teamName: string } | null;
 };
 
 const CATEGORY_LABELS: Record<IngredientCategory, string> = {
@@ -59,6 +60,7 @@ export default function OnboardForm({
   initialEmail,
   initialFirmName,
   tier,
+  slackConnection,
 }: Props) {
   const router = useRouter();
   const [step, setStep] = useState<Step>(1);
@@ -108,8 +110,12 @@ export default function OnboardForm({
 
   function buildChannelConfig(): { type: ChannelType; config: ChannelConfig } | null {
     if (channel.type === "slack") {
-      if (!channel.slackWebhook.startsWith("https://")) return null;
-      return { type: "slack", config: { webhook_url: channel.slackWebhook } };
+      // The webhook URL comes from the OAuth cookie set by
+      // /api/slack/oauth/callback — server-side. Client just signals
+      // "I want Slack delivery." If the cookie is missing, /api/onboard
+      // will reject with a clear error.
+      if (!slackConnection) return null;
+      return { type: "slack", config: { webhook_url: "__from_oauth_cookie__" } };
     }
     if (channel.type === "teams") {
       if (!channel.teamsWebhook.startsWith("https://")) return null;
@@ -391,20 +397,36 @@ export default function OnboardForm({
           )}
 
           {channel.type === "slack" && (
-            <label className="block mb-6">
-              <span className="block font-mono text-[10px] uppercase tracking-[0.3em] text-ink-muted mb-2">
-                Slack webhook URL
-              </span>
-              <input
-                type="url"
-                value={channel.slackWebhook}
-                onChange={(e) =>
-                  setChannel({ ...channel, slackWebhook: e.target.value })
-                }
-                placeholder="https://hooks.slack.com/services/..."
-                className="w-full rounded border border-rule bg-paper px-3 py-2 text-ink focus:outline-none focus:border-ink"
-              />
-            </label>
+            <div className="mb-6">
+              {slackConnection ? (
+                <div className="rounded border border-rule bg-paper-deep px-4 py-3">
+                  <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-ink-muted mb-2">
+                    Slack connected
+                  </p>
+                  <p className="text-ink text-sm mb-2">
+                    Posts go to <strong>{slackConnection.channel}</strong> in <strong>{slackConnection.teamName}</strong>.
+                  </p>
+                  <a
+                    href={`/api/slack/oauth/init?session_id=${encodeURIComponent(sessionId)}`}
+                    className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink-muted hover:text-ink underline underline-offset-2"
+                  >
+                    Reconnect to a different channel
+                  </a>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-ink-muted text-sm mb-3">
+                    Connect Slack — we&apos;ll redirect you to authorize the LabelWatch app, you pick the channel for alerts, then come back here to finish.
+                  </p>
+                  <a
+                    href={`/api/slack/oauth/init?session_id=${encodeURIComponent(sessionId)}`}
+                    className="inline-block rounded bg-ink text-paper font-mono text-xs uppercase tracking-[0.2em] px-5 py-3 hover:bg-ink/85 no-underline"
+                  >
+                    Connect Slack →
+                  </a>
+                </div>
+              )}
+            </div>
           )}
 
           {channel.type === "teams" && (

@@ -5,8 +5,13 @@
 
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { getStripe } from "@/lib/stripe";
 import { isValidTier } from "@/lib/stripe";
+import {
+  SLACK_OAUTH_COOKIE_NAME,
+  decodeOAuthCookie,
+} from "@/lib/slack-oauth";
 import OnboardForm from "./onboard-form";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +19,8 @@ export const runtime = "nodejs";
 
 type OnboardSearchParams = {
   session_id?: string | string[];
+  slack_connected?: string | string[];
+  slack_error?: string | string[];
 };
 
 function firstParam(value: string | string[] | undefined): string | undefined {
@@ -28,6 +35,7 @@ export default async function OnboardPage({
 }) {
   const params = await searchParams;
   const sessionId = firstParam(params.session_id);
+  const slackError = firstParam(params.slack_error);
 
   if (!sessionId || !sessionId.startsWith("cs_")) {
     redirect("/?checkout=invalid");
@@ -49,6 +57,16 @@ export default async function OnboardPage({
     console.error("onboard: session retrieve failed:", err);
     redirect("/?checkout=session_not_found");
   }
+
+  // Read the Slack OAuth cookie (set by /api/slack/oauth/callback) and
+  // pass the connected metadata to the form. The form uses presence to
+  // switch its UI from "Connect Slack" to "Connected ✓ #channel".
+  const cookieStore = await cookies();
+  const slackOAuth = decodeOAuthCookie(cookieStore.get(SLACK_OAUTH_COOKIE_NAME)?.value);
+  const slackConnection =
+    slackOAuth && slackOAuth.sessionId === sessionId
+      ? { channel: slackOAuth.channel, teamName: slackOAuth.teamName }
+      : null;
 
   return (
     <main className="min-h-screen bg-paper text-ink">
@@ -75,11 +93,18 @@ export default async function OnboardPage({
           </p>
         </header>
 
+        {slackError && (
+          <div className="mb-6 rounded border border-recall/40 bg-recall/10 px-4 py-3 text-sm text-recall">
+            Slack connection failed: <code className="font-mono text-xs">{slackError}</code>. You can retry, or pick a different delivery channel.
+          </div>
+        )}
+
         <OnboardForm
           sessionId={sessionId}
           initialEmail={email}
           initialFirmName={firmName}
           tier={tier}
+          slackConnection={slackConnection}
         />
 
         <footer className="mt-16 border-t border-rule pt-6 font-mono text-[10px] uppercase tracking-[0.3em] text-ink-muted">
