@@ -16,6 +16,7 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import type { CSSProperties } from "react";
 import { CUSTOMER_COOKIE_NAME, decodeCustomerCookie } from "@/lib/customer-session";
+import { signAuditToken } from "@/lib/audit-token";
 import { getStripe } from "@/lib/stripe";
 import { getSupabase } from "@/lib/supabase";
 
@@ -171,6 +172,18 @@ async function loadDashboardData(customerId: string) {
     console.error("/account: portal session create failed:", err);
   }
 
+  // Mint an audit-access token so the dashboard can link to /audit?t=...
+  // The token is short-lived from the customer's perspective (180 days TTL
+  // at sign time) but practically permanent for our cadence — we re-mint
+  // on every dashboard load. No need to display it; just embed in the link.
+  let auditUrl: string | null = null;
+  try {
+    const token = signAuditToken(customer.id);
+    auditUrl = `/audit?t=${encodeURIComponent(token)}`;
+  } catch (err) {
+    console.error("/account: audit token mint failed:", err);
+  }
+
   return {
     customer,
     profile,
@@ -179,6 +192,7 @@ async function loadDashboardData(customerId: string) {
     trialEndsAt,
     subscriptionStatus,
     portalUrl,
+    auditUrl,
   };
 }
 
@@ -361,7 +375,7 @@ export default async function AccountPage({
   const data = await loadDashboardData(customerId);
   if (!data) redirect("/?account=not_found");
 
-  const { customer, profile, channels, matches, trialEndsAt, subscriptionStatus, portalUrl } = data;
+  const { customer, profile, channels, matches, trialEndsAt, subscriptionStatus, portalUrl, auditUrl } = data;
 
   const tierLabel = customer.tier.charAt(0).toUpperCase() + customer.tier.slice(1);
   const statusBadge =
@@ -409,6 +423,11 @@ export default async function AccountPage({
               </a>
             ) : (
               <span style={s.manageBtnDisabled}>Manage subscription unavailable</span>
+            )}
+            {auditUrl && (
+              <a href={auditUrl} style={{ ...s.manageBtn, marginLeft: 12, background: "transparent", border: "1px solid var(--color-signal-red)", color: "var(--color-signal-red)" }}>
+                Run listing-copy audit →
+              </a>
             )}
           </p>
         </div>
