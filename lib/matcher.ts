@@ -257,12 +257,23 @@ async function tryAdvisoryLock(
 // succeeds even if the backfill failed; the global cron eventually catches
 // the customer up on its 7d cadence (within the backfill window for very
 // recent recalls).
+// emitDeliveryJobs: if false, the backfill counts matches and writes a clean
+// matcher_runs row but does NOT enqueue per-recall delivery_jobs. Used by
+// /api/onboard (cwlm — onboarding email storm fix): a brand-new customer
+// gets ONE summary "welcome + N recalls in your history" email instead of
+// N individual recall alerts. Default true preserves all existing callers
+// and tests.
 export async function runCustomerBackfill(
   customerId: string,
-  options?: { backfillDays?: number; supabase?: SupabaseClient },
+  options?: {
+    backfillDays?: number;
+    supabase?: SupabaseClient;
+    emitDeliveryJobs?: boolean;
+  },
 ): Promise<MatcherResult> {
   const supabase = options?.supabase ?? getSupabase();
   const days = options?.backfillDays ?? parseNewCustomerBackfillDays();
+  const emitDeliveryJobs = options?.emitDeliveryJobs ?? true;
   const startMs = Date.now();
   const windowStart = new Date(Date.now() - days * 86_400_000).toISOString();
 
@@ -337,7 +348,7 @@ export async function runCustomerBackfill(
       }
     }
 
-    if (allCandidates.length > 0) {
+    if (allCandidates.length > 0 && emitDeliveryJobs) {
       const result = await bulkInsertDeliveryJobs(supabase, runId, allCandidates);
       jobsEmitted = result.inserted;
       jobsConflicted = result.conflicted;

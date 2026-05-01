@@ -12,6 +12,7 @@ import { getStripe } from "@/lib/stripe";
 import { getSupabase } from "@/lib/supabase";
 import { finalizeOnboarding, upsertCustomerSkeleton } from "@/lib/customers";
 import { runCustomerBackfill } from "@/lib/matcher";
+import { sendOnboardingWelcomeEmail } from "@/lib/onboarding-email";
 import { generateSigningSecret } from "@/lib/adapters/http";
 import {
   INGREDIENT_CATEGORIES,
@@ -185,23 +186,46 @@ export async function POST(request: Request) {
       },
     );
 
-    // Per-customer 180-day backfill (bead infrastructure-xv3f). Run synchronously
-    // so the customer sees a consistent state on response. Errors here are
-    // logged but do NOT fail the onboarding — the global matcher cron will
-    // catch the customer up on its forward cadence (within MATCHER_BACKFILL_DAYS=7
-    // for very recent recalls). Skip on re-onboards (alreadyOnboarded=true) since
-    // delivery_jobs UNIQUE would no-op anyway.
+    // Per-customer 180-day backfill (bead infrastructure-xv3f, refined by
+    // infrastructure-cwlm 2026-05-01).
+    //
+    // Runs the matcher across the customer's full backfill window to count
+    // matches and update matcher_runs telemetry, but DOES NOT enqueue
+    // per-recall delivery_jobs — emitDeliveryJobs=false. The customer
+    // receives ONE summary "welcome + N recalls in your last 180 days" email
+    // (sendOnboardingWelcomeEmail) instead of N individual recall alerts.
+    //
+    // Steady-state delivery is unchanged: the global matcher cron continues
+    // to emit per-recall delivery_jobs for new recalls published AFTER the
+    // customer's onboarding timestamp.
+    //
+    // Errors here are logged but do NOT fail the onboarding — the customer
+    // is already a paying subscriber by this point.
     let backfillRunId: string | null = null;
-    let backfillJobsEmitted = 0;
+    let backfillMatched = 0;
     if (!alreadyOnboarded) {
       try {
-        const result = await runCustomerBackfill(customerId, { supabase });
+        const result = await runCustomerBackfill(customerId, {
+          supabase,
+          emitDeliveryJobs: false,
+        });
         if (!result.skipped) {
           backfillRunId = result.runId;
-          backfillJobsEmitted = result.jobsEmitted;
+          backfillMatched = result.matched;
         }
       } catch (err) {
         console.error("customer backfill failed (non-fatal):", err);
+      }
+
+      // Fire-and-log the welcome email. Failures don't fail onboarding.
+      try {
+        await sendOnboardingWelcomeEmail({
+          to: session.customer_details?.email ?? session.customer_email ?? "",
+          firmName: session.customer_details?.name ?? "",
+          backfillMatched,
+        });
+      } catch (err) {
+        console.error("welcome email send failed (non-fatal):", err);
       }
     }
 
@@ -220,7 +244,7 @@ export async function POST(request: Request) {
       customer_id: customerId,
       already_onboarded: alreadyOnboarded,
       backfill_run_id: backfillRunId,
-      backfill_jobs_emitted: backfillJobsEmitted,
+      backfill_matched: backfillMatched,
       signing_secret: signingSecret,
     });
   } catch (err) {
