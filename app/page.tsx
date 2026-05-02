@@ -608,10 +608,18 @@ export default async function Home() {
       </section>
 
       {/* Pricing */}
+      {/*
+        v0.0.1 launch posture (bead infrastructure-exje): only Starter is sold.
+        TIERS array is filtered to starter-only; Pro/Team marketing claims are
+        not yet honored by shipped code (see EPIC infrastructure-azn9). The
+        below-grid line points future-customers to a list. When azn9 is GREEN,
+        revert: drop the .filter(), drop the rolling-out line, restore section
+        label "Three tiers".
+      */}
       <section id="pricing" style={s.pricingSection}>
-        <SectionRule label="Terms · Three tiers" />
+        <SectionRule label="Terms · Starter" />
         <div style={s.pricingGrid} className="pricing-grid">
-          {TIERS.map((t) => (
+          {TIERS.filter((t) => t.tierId === "starter").map((t) => (
             <div key={t.tierId} style={s.pricingCard(t.accent)}>
               {t.accent && (
                 <div
@@ -704,6 +712,32 @@ export default async function Home() {
             ? "Card required to start the trial · No charge for 14 days · Cancel anytime in the portal."
             : "Coming soon. Founding-cohort pricing locked at these rates. Join the waitlist — we'll email once."}
         </div>
+        {/* v0.0.1: Pro/Team marker — bead infrastructure-exje. Remove when azn9 GREEN. */}
+        {liveCheckout && (
+          <div
+            style={{
+              padding: "0 40px 40px",
+              fontFamily: "system-ui, sans-serif",
+              fontSize: 13,
+              color: "#9a9485",
+              textAlign: "center",
+              lineHeight: 1.55,
+              maxWidth: 720,
+              margin: "0 auto",
+            }}
+          >
+            <p style={{ margin: "0 0 16px" }}>
+              Pro ($99/mo) and Team ($299/mo) — multi-channel routing, REST API, multi-user seats, custom alert rules — rolling out this month.
+            </p>
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              <SignupForm
+                tier="pro"
+                campaign="pro-team-waitlist"
+                successMessage="Got it — we'll email you the moment Pro and Team are live."
+              />
+            </div>
+          </div>
+        )}
       </section>
 
       {/* Colophon */}

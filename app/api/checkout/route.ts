@@ -43,6 +43,17 @@ export async function POST(request: Request) {
   if (!isValidTier(tier)) {
     return NextResponse.json({ error: "invalid_tier" }, { status: 400 });
   }
+  // v0.0.1 launch posture (bead infrastructure-exje): only Starter is sold.
+  // Pro/Team are hidden from the landing pricing UI but a stale URL or crawler
+  // could still POST tier=pro|team here — reject server-side until the
+  // EPIC infrastructure-azn9 (Pro/Team tier feature delivery) is GREEN and
+  // the marketing claims are honored by shipped code.
+  if (tier !== "starter") {
+    return NextResponse.json(
+      { error: "tier_not_yet_available" },
+      { status: 400 },
+    );
+  }
 
   let origin: string;
   try {

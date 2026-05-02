@@ -10,10 +10,12 @@ export default function SignupForm({
   tier = "starter",
   campaign,
   className = "",
+  successMessage,
 }: {
   tier?: Tier;
   campaign?: string;
   className?: string;
+  successMessage?: string;
 }) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<Status>("idle");
@@ -69,7 +71,7 @@ export default function SignupForm({
           textTransform: "uppercase",
         }}
       >
-        Got it — we'll email you when LabelWatch opens.
+        {successMessage ?? "Got it — we'll email you when LabelWatch opens."}
       </motion.div>
     );
   }
