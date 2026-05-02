@@ -276,7 +276,9 @@ const s = {
 
   pricingGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(3, 1fr)",
+    // v0.0.1: 2-col while Pro/Team are hidden (bead infrastructure-exje).
+    // Restore "repeat(3, 1fr)" when EPIC infrastructure-azn9 is GREEN.
+    gridTemplateColumns: "repeat(2, 1fr)",
     gap: 14,
     padding: "0 40px 40px",
   } as CSSProperties,
@@ -695,6 +697,86 @@ export default async function Home() {
               </div>
             </div>
           ))}
+
+          {/*
+            v0.0.1: Pro/Team marker — sibling card to Starter while their
+            features are still being built. Bead infrastructure-exje. Remove
+            this entire <div> when EPIC infrastructure-azn9 is GREEN; the
+            real Pro + Team cards will return via the unfiltered TIERS map.
+          */}
+          {liveCheckout && (
+            <div style={s.pricingCard(false)}>
+              <div
+                style={{
+                  fontFamily: "var(--font-jetbrains), monospace",
+                  fontSize: 10,
+                  letterSpacing: 2,
+                  textTransform: "uppercase",
+                  color: "#807a6c",
+                }}
+              >
+                Pro &amp; Team
+              </div>
+              <div
+                style={{
+                  ...s.pricingPrice,
+                  fontSize: 32,
+                  color: "#9a9485",
+                  marginTop: 16,
+                }}
+              >
+                Rolling out
+                <span
+                  style={{
+                    fontFamily: "var(--font-jetbrains), monospace",
+                    fontSize: 13,
+                    fontWeight: 400,
+                    letterSpacing: 0,
+                    color: "#807a6c",
+                    marginLeft: 6,
+                  }}
+                >
+                  this month
+                </span>
+              </div>
+              <div
+                style={{
+                  marginTop: 12,
+                  fontFamily: "system-ui, sans-serif",
+                  fontSize: 13,
+                  color: "#9a9485",
+                  lineHeight: 1.55,
+                }}
+              >
+                The bigger tiers — multi-channel routing, REST API, multi-user
+                seats, custom alert rules — are shipping over the next few
+                weeks.
+              </div>
+              <div style={s.pricingList}>
+                <div>· Pro ($99/mo) — all channels, 12-mo history, severity routing</div>
+                <div>· Team ($299/mo) — Pro + REST API + 5 seats + CSV export</div>
+              </div>
+              <div style={{ marginTop: "auto", paddingTop: 24 }}>
+                <p
+                  style={{
+                    fontFamily: "var(--font-jetbrains), monospace",
+                    fontSize: 9.5,
+                    letterSpacing: 1.2,
+                    textTransform: "uppercase",
+                    color: "#807a6c",
+                    margin: "0 0 10px",
+                  }}
+                >
+                  Get on the early-access list
+                </p>
+                <SignupForm
+                  tier="pro"
+                  campaign="pro-team-waitlist"
+                  successMessage="Got it — we'll email you the moment Pro and Team are live."
+                />
+              </div>
+            </div>
+          )}
         </div>
         <div
           className="pricing-footer"
@@ -712,32 +794,6 @@ export default async function Home() {
             ? "Card required to start the trial · No charge for 14 days · Cancel anytime in the portal."
             : "Coming soon. Founding-cohort pricing locked at these rates. Join the waitlist — we'll email once."}
         </div>
-        {/* v0.0.1: Pro/Team marker — bead infrastructure-exje. Remove when azn9 GREEN. */}
-        {liveCheckout && (
-          <div
-            style={{
-              padding: "0 40px 40px",
-              fontFamily: "system-ui, sans-serif",
-              fontSize: 13,
-              color: "#9a9485",
-              textAlign: "center",
-              lineHeight: 1.55,
-              maxWidth: 720,
-              margin: "0 auto",
-            }}
-          >
-            <p style={{ margin: "0 0 16px" }}>
-              Pro ($99/mo) and Team ($299/mo) — multi-channel routing, REST API, multi-user seats, custom alert rules — rolling out this month.
-            </p>
-            <div style={{ display: "flex", justifyContent: "center" }}>
-              <SignupForm
-                tier="pro"
-                campaign="pro-team-waitlist"
-                successMessage="Got it — we'll email you the moment Pro and Team are live."
-              />
-            </div>
-          </div>
-        )}
       </section>
 
       {/* Colophon */}
