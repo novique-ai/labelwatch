@@ -708,7 +708,7 @@ export default async function Home() {
 
       {/* Colophon */}
       <section style={s.colophonSection}>
-        <SectionRule label="Colophon" />
+        <SectionRule label="About · Sources & contact" />
         <div style={s.colophonGrid} className="colophon-grid">
           <div>
             <div style={s.colophonLabel}>Published by</div>
