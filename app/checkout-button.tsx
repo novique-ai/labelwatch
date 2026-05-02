@@ -34,7 +34,7 @@ export default function CheckoutButton({
         setStatus("error");
         setErrorMsg(
           data?.error === "stripe_not_configured"
-            ? "Checkout is being configured. Join the waitlist for now."
+            ? "Checkout is temporarily unavailable. Try again in a moment, or contact support."
             : "Couldn't start checkout. Try again in a moment.",
         );
         return;

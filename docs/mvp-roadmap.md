@@ -28,7 +28,7 @@
 | Validation + gap-fix sweep | `infrastructure-r7d5` | ⬜ Pre-relaunch |
 | Listing Copy Audit (lcaudit) | `infrastructure-sl26` | 🟡 Code landed 2026-04-25 (awaiting relaunch + Supabase migration apply to exercise) |
 | Daily "FDA Today for Supplements" digest | `infrastructure-uihh` | ⬜ Reuses zxv3 poller; ships in §5.5 of GTM plan |
-| Re-enable checkout + strip pilot language | `infrastructure-9ewv` | ⬜ Relaunch trigger (now also blocked by sl26) |
+| Re-enable checkout + strip pilot language | `infrastructure-9ewv` | 🟡 Code shipped 2026-05-02; awaiting NEXT_PUBLIC_LIVE_CHECKOUT=true env flip + redeploy |
 | SEO foundations | `infrastructure-t3w4` | ⬜ Ships WITH relaunch commit |
 | Marketing launch burst | `infrastructure-gc8o` | ⬜ Post-relaunch |
 
@@ -301,6 +301,7 @@ Per T1.2 §2A, Amazon's 2026 TIC expansion includes **AI-driven scans of A+ cont
 
 ## Changelog
 
+- **2026-05-02 (9ewv code)** — Launch-flip code shipped, gated on `NEXT_PUBLIC_LIVE_CHECKOUT=true`. Hero right column now renders `<CheckoutButton tier="starter" label="Start 14-day free trial">` when flag is on (was always `<SignupForm>`); hero fineprint swaps to "Card required to hold your spot · No charge for 14 days · Cancel anytime in the portal." Per-pricing-card "Founding-cohort pricing locked" eyebrow line deleted (was always shown regardless of flag). Checkout error message rephrased away from "Join the waitlist" wording. Pricing CTAs and pricing-footer copy were already flag-gated (no edit needed). Build + tsc clean. Awaits Vercel env flip + redeploy + real-card smoke.
 - **2026-05-02 (3mbd)** — `/account` channel management added. Surfaced during e1pt walkthrough validation: customers who completed onboarding could not add a second channel — `finalizeOnboarding` short-circuits on `onboarding_completed_at IS NOT NULL` and silently no-ops the channel insert, leaving the form to forward to `/account` showing fictitious success. Fix:
   - **Slack OAuth gains a `return_to` parameter** — `lib/slack-oauth.ts` state cookie now carries either `{sessionId, returnTo:"onboard"}` (e1pt flow) or `{customerId, returnTo:"account"}` (3mbd flow); exactly one bound. `/api/slack/oauth/init?return_to=account` reads the customer-session cookie to bind, `/callback` re-verifies the cookie still matches the state's customerId before insert (defends against signout / cookie swap mid-OAuth).
   - **`/api/account/channels`** — POST adds email/http channels (slack rejected; OAuth callback handles it directly to avoid a second cookie hop). DELETE removes a channel by id, scoped to the cookie-bound customer. `lib/customers.ts` gains `addCustomerChannel` + `deleteCustomerChannel` helpers; HTTP signing secret returned ONCE on POST same as `/api/onboard`.

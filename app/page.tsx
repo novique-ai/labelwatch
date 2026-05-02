@@ -448,10 +448,16 @@ export default async function Home() {
               brands — not the $500/mo enterprise platforms.
             </div>
             <div style={{ marginTop: 28 }}>
-              <SignupForm tier="starter" />
+              {liveCheckout ? (
+                <CheckoutButton tier="starter" label="Start 14-day free trial" accent />
+              ) : (
+                <SignupForm tier="starter" />
+              )}
             </div>
             <div style={s.fineprint}>
-              No credit card · founding cohort · one email when we open.
+              {liveCheckout
+                ? "Card required to hold your spot · No charge for 14 days · Cancel anytime in the portal."
+                : "No credit card · founding cohort · one email when we open."}
             </div>
           </div>
         </div>
@@ -651,18 +657,6 @@ export default async function Home() {
                 >
                   {t.cadence}
                 </span>
-              </div>
-              <div
-                style={{
-                  marginTop: 4,
-                  fontFamily: "var(--font-jetbrains), monospace",
-                  fontSize: 9,
-                  letterSpacing: 1.5,
-                  textTransform: "uppercase",
-                  color: "#807a6c",
-                }}
-              >
-                Founding-cohort pricing locked
               </div>
               <div
                 style={{
