@@ -695,6 +695,21 @@ export default async function Home() {
                   <PricingCta accent={t.accent} />
                 )}
               </div>
+              {liveCheckout && (
+                <p
+                  style={{
+                    marginTop: 10,
+                    fontFamily: "var(--font-jetbrains), monospace",
+                    fontSize: 9.5,
+                    letterSpacing: 1.2,
+                    textTransform: "uppercase",
+                    color: "#807a6c",
+                    textAlign: "center",
+                  }}
+                >
+                  Switch tiers or cancel anytime · Stripe prorates the difference
+                </p>
+              )}
             </div>
           ))}
 
