@@ -199,3 +199,49 @@ export async function finalizeOnboarding(
 
   return { customerId: customer.id, alreadyOnboarded: false };
 }
+
+// Append a delivery channel for an already-onboarded customer. Used by
+// /api/account/channels (POST) and the /account-return Slack OAuth callback.
+// Bead infrastructure-3mbd.
+//
+// No unique constraint on (customer_id, type) — customers may have multiple
+// channels of the same type (e.g. two Slack workspaces). Idempotency at the
+// caller's discretion.
+export async function addCustomerChannel(
+  supabase: SupabaseClient,
+  customerId: string,
+  channel: { type: ChannelType; config: ChannelConfig },
+): Promise<{ id: string }> {
+  const { data, error } = await supabase
+    .from("customer_channels")
+    .insert({
+      customer_id: customerId,
+      type: channel.type,
+      config: channel.config,
+      enabled: true,
+    })
+    .select("id")
+    .single();
+  if (error) {
+    throw new Error(`customer_channels insert failed: ${error.message}`);
+  }
+  return { id: data.id };
+}
+
+// Delete a single channel scoped to a customer. Returns rows-deleted so the
+// caller can distinguish "deleted" from "no such row / wrong customer".
+export async function deleteCustomerChannel(
+  supabase: SupabaseClient,
+  customerId: string,
+  channelId: string,
+): Promise<{ deleted: number }> {
+  const { error, count } = await supabase
+    .from("customer_channels")
+    .delete({ count: "exact" })
+    .eq("id", channelId)
+    .eq("customer_id", customerId);
+  if (error) {
+    throw new Error(`customer_channels delete failed: ${error.message}`);
+  }
+  return { deleted: count ?? 0 };
+}

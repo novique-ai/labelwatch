@@ -236,10 +236,16 @@ export default function OnboardForm({
       // is passed forward as a query param so /account can render it
       // once. Bead: infrastructure-5ncn (replaces /onboard/complete as
       // the post-onboard landing).
-      const dest = data.signing_secret
-        ? `/account?signing_secret=${encodeURIComponent(data.signing_secret)}`
-        : "/account";
-      router.push(dest);
+      //
+      // already_onboarded=true means the API short-circuited: this customer
+      // re-visited /onboard but their profile + channels are unchanged. Tell
+      // /account to show a flash so they understand nothing changed and they
+      // should use the channel-management UI there. Bead infrastructure-3mbd.
+      const params = new URLSearchParams();
+      if (data.signing_secret) params.set("signing_secret", data.signing_secret);
+      if (data.already_onboarded) params.set("already_onboarded", "1");
+      const qs = params.toString();
+      router.push(qs ? `/account?${qs}` : "/account");
     } catch (err) {
       console.error(err);
       setError("Network error. Try again.");

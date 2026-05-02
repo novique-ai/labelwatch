@@ -19,6 +19,8 @@ import { CUSTOMER_COOKIE_NAME, decodeCustomerCookie } from "@/lib/customer-sessi
 import { signAuditToken } from "@/lib/audit-token";
 import { getStripe } from "@/lib/stripe";
 import { getSupabase } from "@/lib/supabase";
+import AddChannelForm from "./add-channel-form";
+import ChannelRowActions from "./channel-row-actions";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -26,6 +28,10 @@ export const runtime = "nodejs";
 type SearchParams = Promise<{
   session_id?: string;
   signing_secret?: string;
+  slack_added?: string;
+  slack_team?: string;
+  slack_error?: string;
+  already_onboarded?: string;
 }>;
 
 type CustomerRow = {
@@ -44,6 +50,7 @@ type ProfileRow = {
 };
 
 type ChannelRow = {
+  id: string;
   type: string;
   config: Record<string, unknown>;
   enabled: boolean;
@@ -121,8 +128,9 @@ async function loadDashboardData(customerId: string) {
 
   const { data: channelsRaw } = await supabase
     .from("customer_channels")
-    .select("type, config, enabled")
-    .eq("customer_id", customerId);
+    .select("id, type, config, enabled")
+    .eq("customer_id", customerId)
+    .order("created_at", { ascending: true });
   const channels: ChannelRow[] = (channelsRaw ?? []) as ChannelRow[];
 
   const { data: matchesRaw } = await supabase
@@ -350,6 +358,30 @@ const s = {
     margin: "0 0 32px",
     borderRadius: 4,
   } as CSSProperties,
+  flashOk: {
+    background: "rgba(16, 122, 87, 0.10)",
+    border: "1px solid rgba(16, 122, 87, 0.6)",
+    color: "var(--color-text-primary)",
+    padding: "14px 20px",
+    margin: "0 0 24px",
+    borderRadius: 4,
+    fontSize: 13,
+  } as CSSProperties,
+  flashErr: {
+    background: "rgba(198, 58, 31, 0.10)",
+    border: "1px solid var(--color-signal-red)",
+    color: "var(--color-signal-red)",
+    padding: "14px 20px",
+    margin: "0 0 24px",
+    borderRadius: 4,
+    fontSize: 13,
+  } as CSSProperties,
+  channelMeta: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 12,
+  } as CSSProperties,
   pre: {
     background: "var(--color-bg-base)",
     color: "var(--color-text-primary)",
@@ -386,6 +418,10 @@ export default async function AccountPage({
         : `${tierLabel} · ${subscriptionStatus}`;
 
   const signingSecret = params.signing_secret;
+  const slackAdded = params.slack_added;
+  const slackTeam = params.slack_team;
+  const slackError = params.slack_error;
+  const showAlreadyOnboarded = params.already_onboarded === "1";
 
   return (
     <main style={s.page}>
@@ -410,6 +446,25 @@ export default async function AccountPage({
               Shown ONCE — there is no API to retrieve it later.
             </p>
             <pre style={s.pre}>{signingSecret}</pre>
+          </div>
+        )}
+
+        {slackAdded && (
+          <div style={s.flashOk}>
+            Slack channel added — posts go to <strong>{slackAdded}</strong>
+            {slackTeam ? <> in <strong>{slackTeam}</strong></> : null}.
+          </div>
+        )}
+
+        {slackError && (
+          <div style={s.flashErr}>
+            Slack connection failed: <code>{slackError}</code>. You can retry from the Add a channel section below.
+          </div>
+        )}
+
+        {showAlreadyOnboarded && (
+          <div style={s.flashOk}>
+            You&apos;re already onboarded — your existing setup is unchanged. To add or remove a delivery channel, use the controls below.
           </div>
         )}
 
@@ -468,20 +523,36 @@ export default async function AccountPage({
           <p style={s.sectionTitle}>Delivery channels</p>
           <div style={s.card}>
             {channels.length === 0 ? (
-              <p style={s.empty}>No channels configured. Re-onboard to set one up.</p>
+              <p style={s.empty}>No channels configured. Add one below.</p>
             ) : (
               channels.map((ch, i) => (
-                <div key={i} style={{ ...s.kv, borderTop: i > 0 ? "1px solid var(--color-border-subtle)" : "none", paddingTop: i > 0 ? 12 : 0, marginTop: i > 0 ? 12 : 0 }}>
-                  <div style={s.kvKey}>Channel {i + 1}</div>
-                  <div>{ch.type} {ch.enabled ? "" : "(disabled)"}</div>
-                  <div style={s.kvKey}>Destination</div>
-                  <div style={{ fontSize: 12, color: "var(--color-text-secondary)", wordBreak: "break-all" }}>
-                    {channelDestinationLabel(ch)}
+                <div
+                  key={ch.id}
+                  style={{
+                    borderTop: i > 0 ? "1px solid var(--color-border-subtle)" : "none",
+                    paddingTop: i > 0 ? 12 : 0,
+                    marginTop: i > 0 ? 12 : 0,
+                  }}
+                >
+                  <div style={s.channelMeta}>
+                    <div style={{ ...s.kv, flex: 1 }}>
+                      <div style={s.kvKey}>Channel {i + 1}</div>
+                      <div>{ch.type} {ch.enabled ? "" : "(disabled)"}</div>
+                      <div style={s.kvKey}>Destination</div>
+                      <div style={{ fontSize: 12, color: "var(--color-text-secondary)", wordBreak: "break-all" }}>
+                        {channelDestinationLabel(ch)}
+                      </div>
+                    </div>
+                    <ChannelRowActions
+                      channelId={ch.id}
+                      label={`${ch.type} channel`}
+                    />
                   </div>
                 </div>
               ))
             )}
           </div>
+          <AddChannelForm />
         </section>
 
         <section style={s.section}>
@@ -513,7 +584,7 @@ export default async function AccountPage({
         </section>
 
         <p style={{ ...s.empty, textAlign: "center" as const, marginTop: 60, fontStyle: "normal" as const }}>
-          Need to change scope or channels? Reply to any LabelWatch email and we'll update it.
+          Need to change firm scope or severity? Reply to any LabelWatch email and we&apos;ll update it.
         </p>
       </div>
     </main>

@@ -37,13 +37,35 @@ function sign(value: string): string {
   return createHmac("sha256", getSecret()).update(value).digest("hex");
 }
 
-// State cookie: nonce + session_id. We don't strictly need the nonce since
-// we sign the whole payload, but it makes replay protection explicit.
-type StatePayload = { nonce: string; sessionId: string; createdAt: number };
+// State cookie: nonce + binding key + return target. The OAuth flow has
+// two callers today (bead infrastructure-3mbd):
+//   - /onboard: binding key is the Stripe sessionId (no customer cookie yet).
+//   - /account: binding key is the customerId from the customer-session cookie.
+// Exactly one of {sessionId, customerId} is set per state cookie. returnTo
+// tells the callback which page to send the user back to.
+export type SlackOAuthReturnTo = "onboard" | "account";
 
-export function encodeStateCookie(sessionId: string): { value: string; nonce: string } {
+type StatePayload = {
+  nonce: string;
+  sessionId: string | null;
+  customerId: string | null;
+  returnTo: SlackOAuthReturnTo;
+  createdAt: number;
+};
+
+export function encodeStateCookie(args: {
+  sessionId?: string | null;
+  customerId?: string | null;
+  returnTo: SlackOAuthReturnTo;
+}): { value: string; nonce: string } {
   const nonce = randomBytes(16).toString("hex");
-  const payload: StatePayload = { nonce, sessionId, createdAt: Math.floor(Date.now() / 1000) };
+  const payload: StatePayload = {
+    nonce,
+    sessionId: args.sessionId ?? null,
+    customerId: args.customerId ?? null,
+    returnTo: args.returnTo,
+    createdAt: Math.floor(Date.now() / 1000),
+  };
   const json = JSON.stringify(payload);
   const b64 = Buffer.from(json, "utf8").toString("base64url");
   const sig = sign(b64);
@@ -70,15 +92,23 @@ export function decodeStateCookie(raw: string | undefined | null): StatePayload 
     return null;
   }
 
-  if (typeof payload.nonce !== "string" || typeof payload.sessionId !== "string") return null;
+  if (typeof payload.nonce !== "string") return null;
   if (typeof payload.createdAt !== "number") return null;
+  if (payload.returnTo !== "onboard" && payload.returnTo !== "account") return null;
+  // Exactly one of sessionId / customerId must be present.
+  const hasSession = typeof payload.sessionId === "string" && payload.sessionId.length > 0;
+  const hasCustomer = typeof payload.customerId === "string" && payload.customerId.length > 0;
+  if (hasSession === hasCustomer) return null;
   const ageSec = Math.floor(Date.now() / 1000) - payload.createdAt;
   if (ageSec > STATE_TTL_SECONDS || ageSec < -60) return null;
 
   return payload;
 }
 
-// OAuth-result cookie: webhook URL + display metadata, signed.
+// OAuth-result cookie: webhook URL + display metadata, signed. Set by the
+// callback for the /onboard return path so the form can render a connected
+// banner before the customer hits Submit. The /account path bypasses this
+// cookie — the callback inserts the channel directly.
 export type SlackOAuthPayload = {
   sessionId: string;
   webhookUrl: string;
