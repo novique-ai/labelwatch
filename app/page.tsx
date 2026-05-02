@@ -456,7 +456,7 @@ export default async function Home() {
             </div>
             <div style={s.fineprint}>
               {liveCheckout
-                ? "Card required to hold your spot · No charge for 14 days · Cancel anytime in the portal."
+                ? "Card required to start the trial · No charge for 14 days · Cancel anytime in the portal."
                 : "No credit card · founding cohort · one email when we open."}
             </div>
           </div>
@@ -701,7 +701,7 @@ export default async function Home() {
           }}
         >
           {liveCheckout
-            ? "No charge for 14 days — card required to hold your spot · Cancel anytime inside the portal."
+            ? "Card required to start the trial · No charge for 14 days · Cancel anytime in the portal."
             : "Coming soon. Founding-cohort pricing locked at these rates. Join the waitlist — we'll email once."}
         </div>
       </section>
