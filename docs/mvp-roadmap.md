@@ -1,4 +1,13 @@
+---
+owner: Clayton
+last_reviewed: 2026-05-05
+source_of_truth_for: LabelWatch product MVP scope — what's in MVP1 vs MVP2
+supersedes: null
+---
+
 # LabelWatch MVP Roadmap
+
+> **Why this exists.** Without a session-updated MVP1/MVP2 split, scope drifts mid-iteration and the product-delivers gate becomes vague. This file is the explicit forcing function — every session touching LabelWatch ends with this in sync.
 
 **Purpose.** Single source of truth for what's in MVP1 (currently shipping) vs MVP2 (known future work, already decided on direction but deferred). Updated every session.
 
