@@ -5,8 +5,9 @@
 // Beads under epic infrastructure-azn9:
 //   - 0a0x — brand cap (firm_aliases count)
 //   - gvqx — channel cap + channel-type allowlist
-// Sibling beads (history window, severity routing, cadence split) land here
-// as they ship.
+//   - fovp — history window cap (delivery_jobs visibility)
+// Sibling beads (severity routing, cadence split, custom rules, seats,
+// CSV export, REST API) land here as they ship.
 
 import type { ChannelType, Tier } from "@/types/database.types";
 
@@ -101,4 +102,25 @@ export function checkChannelAdd(
     cap,
     remaining: cap === null ? null : cap - currentCount - 1,
   };
+}
+
+// Per-tier window for visible delivery_jobs history. Enforced at the
+// /account dashboard query and at any future /history page or CSV export.
+// null = unlimited (Team).
+//
+// Bead infrastructure-fovp.
+export const TIER_HISTORY_DAYS: Record<Tier, number | null> = {
+  starter: 7,
+  pro: 365,
+  team: null,
+};
+
+// Returns the ISO timestamp older than which delivery_jobs MUST NOT be
+// returned for this tier. null = no filter (Team / unlimited). Caller
+// passes a Date for testability; production callers should pass `new Date()`.
+export function historyCutoffISO(tier: Tier, now: Date = new Date()): string | null {
+  const days = TIER_HISTORY_DAYS[tier];
+  if (days === null) return null;
+  const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+  return cutoff.toISOString();
 }

@@ -17,8 +17,9 @@ import { cookies } from "next/headers";
 import type { CSSProperties } from "react";
 import { CUSTOMER_COOKIE_NAME, decodeCustomerCookie } from "@/lib/customer-session";
 import { signAuditToken } from "@/lib/audit-token";
-import { getStripe } from "@/lib/stripe";
+import { getStripe, isValidTier } from "@/lib/stripe";
 import { getSupabase } from "@/lib/supabase";
+import { TIER_HISTORY_DAYS, historyCutoffISO } from "@/lib/tier-limits";
 import AddChannelForm from "./add-channel-form";
 import ChannelRowActions from "./channel-row-actions";
 
@@ -133,15 +134,37 @@ async function loadDashboardData(customerId: string) {
     .order("created_at", { ascending: true });
   const channels: ChannelRow[] = (channelsRaw ?? []) as ChannelRow[];
 
-  const { data: matchesRaw } = await supabase
+  // Tier-aware history window (bead infrastructure-fovp). Default-deny: any
+  // unparseable tier value falls back to starter (most restrictive).
+  const tierForHistory = isValidTier(customer.tier) ? customer.tier : "starter";
+  const cutoff = historyCutoffISO(tierForHistory);
+
+  let matchQuery = supabase
     .from("delivery_jobs")
     .select(
       "id, status, severity_class, matched_value, sent_at, created_at, recall:recalls(recall_number, firm_name_raw, product_description)",
     )
-    .eq("customer_id", customerId)
+    .eq("customer_id", customerId);
+  if (cutoff !== null) {
+    matchQuery = matchQuery.gte("created_at", cutoff);
+  }
+  const { data: matchesRaw } = await matchQuery
     .order("created_at", { ascending: false })
     .limit(20);
   const matches: RecentMatchRow[] = (matchesRaw ?? []) as unknown as RecentMatchRow[];
+
+  // Hidden-history count for the upsell line: total matches that exist for
+  // this customer OUTSIDE the visible window. Skip the count query entirely
+  // for unlimited (Team).
+  let hiddenMatchCount = 0;
+  if (cutoff !== null) {
+    const { count } = await supabase
+      .from("delivery_jobs")
+      .select("id", { count: "exact", head: true })
+      .eq("customer_id", customerId)
+      .lt("created_at", cutoff);
+    hiddenMatchCount = count ?? 0;
+  }
 
   // Stripe subscription details
   let trialEndsAt: string | null = null;
@@ -197,6 +220,7 @@ async function loadDashboardData(customerId: string) {
     profile,
     channels,
     matches,
+    hiddenMatchCount,
     trialEndsAt,
     subscriptionStatus,
     portalUrl,
@@ -407,7 +431,11 @@ export default async function AccountPage({
   const data = await loadDashboardData(customerId);
   if (!data) redirect("/?account=not_found");
 
-  const { customer, profile, channels, matches, trialEndsAt, subscriptionStatus, portalUrl, auditUrl } = data;
+  const { customer, profile, channels, matches, hiddenMatchCount, trialEndsAt, subscriptionStatus, portalUrl, auditUrl } = data;
+  const tierForHistory = isValidTier(customer.tier) ? customer.tier : "starter";
+  const historyDays = TIER_HISTORY_DAYS[tierForHistory];
+  const historyLabel =
+    historyDays === null ? "all time" : historyDays >= 365 ? "12 months" : `${historyDays} days`;
 
   const tierLabel = customer.tier.charAt(0).toUpperCase() + customer.tier.slice(1);
   const statusBadge =
@@ -556,11 +584,13 @@ export default async function AccountPage({
         </section>
 
         <section style={s.section}>
-          <p style={s.sectionTitle}>Recent matches (last 20)</p>
+          <p style={s.sectionTitle}>Recent matches (last 20 · {historyLabel})</p>
           <div style={s.card}>
             {matches.length === 0 ? (
               <p style={s.empty}>
-                No matches yet. New recalls will appear here as they publish and match your watch profile.
+                {hiddenMatchCount > 0
+                  ? `No matches in your last ${historyLabel}. ${hiddenMatchCount} older match${hiddenMatchCount === 1 ? "" : "es"} are outside your tier's window — upgrade to ${tierForHistory === "starter" ? "Pro for 12 months" : "Team for unlimited"} of history.`
+                  : "No matches yet. New recalls will appear here as they publish and match your watch profile."}
               </p>
             ) : (
               matches.map((m) => (
@@ -581,6 +611,12 @@ export default async function AccountPage({
               ))
             )}
           </div>
+          {matches.length > 0 && hiddenMatchCount > 0 && tierForHistory !== "team" && (
+            <p style={{ ...s.empty, textAlign: "left" as const, marginTop: 12, fontStyle: "normal" as const }}>
+              {hiddenMatchCount} older match{hiddenMatchCount === 1 ? "" : "es"} outside your {historyLabel} window
+              — upgrade to {tierForHistory === "starter" ? "Pro for 12 months" : "Team for unlimited"} of history.
+            </p>
+          )}
         </section>
 
         <p style={{ ...s.empty, textAlign: "center" as const, marginTop: 60, fontStyle: "normal" as const }}>

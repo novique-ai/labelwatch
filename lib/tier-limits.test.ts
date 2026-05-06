@@ -3,8 +3,10 @@ import {
   TIER_ALLOWED_CHANNEL_TYPES,
   TIER_BRAND_CAP,
   TIER_CHANNEL_CAP,
+  TIER_HISTORY_DAYS,
   checkBrandCap,
   checkChannelAdd,
+  historyCutoffISO,
   isChannelTypeAllowed,
 } from "./tier-limits";
 
@@ -190,5 +192,33 @@ describe("checkChannelAdd — team", () => {
         expect(v.remaining).toBeNull();
       }
     }
+  });
+});
+
+describe("TIER_HISTORY_DAYS + historyCutoffISO", () => {
+  it("locks the documented history windows", () => {
+    expect(TIER_HISTORY_DAYS.starter).toBe(7);
+    expect(TIER_HISTORY_DAYS.pro).toBe(365);
+    expect(TIER_HISTORY_DAYS.team).toBeNull();
+  });
+
+  it("returns null for team (no filter)", () => {
+    expect(historyCutoffISO("team")).toBeNull();
+  });
+
+  it("starter cutoff is exactly 7 days ago in UTC", () => {
+    const now = new Date("2026-05-06T12:00:00.000Z");
+    expect(historyCutoffISO("starter", now)).toBe("2026-04-29T12:00:00.000Z");
+  });
+
+  it("pro cutoff is exactly 365 days ago in UTC", () => {
+    const now = new Date("2026-05-06T12:00:00.000Z");
+    expect(historyCutoffISO("pro", now)).toBe("2025-05-06T12:00:00.000Z");
+  });
+
+  it("rolls back across month/year boundaries cleanly", () => {
+    // 7 days before 2026-01-03 → 2025-12-27
+    const now = new Date("2026-01-03T00:00:00.000Z");
+    expect(historyCutoffISO("starter", now)).toBe("2025-12-27T00:00:00.000Z");
   });
 });
