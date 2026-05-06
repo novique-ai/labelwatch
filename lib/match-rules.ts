@@ -102,10 +102,12 @@ export function matchFirmAliases(
 
 // Severity gate. Returns true if the recall should reach this channel.
 //
-// Resolution order:
-//   1. severity_preferences.per_channel[<channelType>].min_class
-//   2. severity_preferences.default_min_class
-//   3. No filter (treat empty {} as send-all)
+// Resolution order (most specific wins):
+//   1. channel.severity_filter.min_class    — bead infrastructure-dxkk
+//   2. severity_preferences.per_channel[<channelType>].min_class — legacy path
+//      kept for backward compat with existing rows; new channels use #1.
+//   3. severity_preferences.default_min_class
+//   4. No filter (treat empty {} as send-all)
 //
 // A recall with classification = null (rare; older recall rows may lack it)
 // fails the gate — we don't want to deliver an unclassified row.
@@ -113,11 +115,20 @@ export function isRecallEligibleForChannel(args: {
   recallClass: RecallClassification | null;
   channelType: CustomerChannelRow["type"];
   severityPrefs: SeverityPreferences | Record<string, never>;
+  channelSeverityFilter?: CustomerChannelRow["severity_filter"];
 }): boolean {
   const sev = recallClassToSeverity(args.recallClass);
   if (!sev) return false;
 
-  // Empty {} = send-all (no preferences set yet).
+  // 1. Channel-row override (dxkk).
+  if (args.channelSeverityFilter?.min_class) {
+    return (
+      SEVERITY_CLASS_RANK[sev] >=
+      SEVERITY_CLASS_RANK[args.channelSeverityFilter.min_class]
+    );
+  }
+
+  // 2-4. Existing profile-level resolution.
   const hasDefault = "default_min_class" in args.severityPrefs;
   const perChannel = (args.severityPrefs as SeverityPreferences).per_channel;
   if (!hasDefault && !perChannel) return true;
@@ -189,6 +200,7 @@ export function matchCandidates(args: {
         recallClass: recall.classification,
         channelType: channel.type,
         severityPrefs: profile.severity_preferences,
+        channelSeverityFilter: channel.severity_filter,
       });
       if (!eligible) continue;
 

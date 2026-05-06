@@ -22,6 +22,7 @@ import { getSupabase } from "@/lib/supabase";
 import { TIER_HISTORY_DAYS, historyCutoffISO } from "@/lib/tier-limits";
 import AddChannelForm from "./add-channel-form";
 import ChannelRowActions from "./channel-row-actions";
+import ChannelSeverityControl from "./channel-severity-control";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -55,6 +56,7 @@ type ChannelRow = {
   type: string;
   config: Record<string, unknown>;
   enabled: boolean;
+  severity_filter: { min_class: "I" | "II" | "III" } | null;
 };
 
 type RecentMatchRow = {
@@ -129,7 +131,7 @@ async function loadDashboardData(customerId: string) {
 
   const { data: channelsRaw } = await supabase
     .from("customer_channels")
-    .select("id, type, config, enabled")
+    .select("id, type, config, enabled, severity_filter")
     .eq("customer_id", customerId)
     .order("created_at", { ascending: true });
   const channels: ChannelRow[] = (channelsRaw ?? []) as ChannelRow[];
@@ -576,6 +578,18 @@ export default async function AccountPage({
                       label={`${ch.type} channel`}
                     />
                   </div>
+                  <ChannelSeverityControl
+                    channelId={ch.id}
+                    tier={customer.tier}
+                    defaultMinClass={
+                      (profile.severity_preferences?.default_min_class as
+                        | "I"
+                        | "II"
+                        | "III"
+                        | undefined) ?? "II"
+                    }
+                    initialFilter={ch.severity_filter}
+                  />
                 </div>
               ))
             )}

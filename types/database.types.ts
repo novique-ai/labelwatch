@@ -77,12 +77,19 @@ export type CustomerProfileRow = {
   updated_at: string;
 };
 
+// Per-channel severity gate (Pro+ feature, bead infrastructure-dxkk).
+// When non-null, overrides customer_profiles.severity_preferences
+// .default_min_class for THIS channel only. Null = inherit the
+// customer-level default.
+export type ChannelSeverityFilter = { min_class: SeverityClass };
+
 export type CustomerChannelRow = {
   id: string;
   customer_id: string;
   type: ChannelType;
   config: ChannelConfig;
   enabled: boolean;
+  severity_filter: ChannelSeverityFilter | null;
   created_at: string;
   updated_at: string;
 };

@@ -245,3 +245,23 @@ export async function deleteCustomerChannel(
   }
   return { deleted: count ?? 0 };
 }
+
+// Update the severity_filter on a single channel scoped to a customer.
+// Pass null to clear (channel falls back to the customer-level default).
+// Bead infrastructure-dxkk.
+export async function updateChannelSeverityFilter(
+  supabase: SupabaseClient,
+  customerId: string,
+  channelId: string,
+  severityFilter: { min_class: "I" | "II" | "III" } | null,
+): Promise<{ updated: number }> {
+  const { error, count } = await supabase
+    .from("customer_channels")
+    .update({ severity_filter: severityFilter }, { count: "exact" })
+    .eq("id", channelId)
+    .eq("customer_id", customerId);
+  if (error) {
+    throw new Error(`customer_channels severity_filter update failed: ${error.message}`);
+  }
+  return { updated: count ?? 0 };
+}

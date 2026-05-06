@@ -23,11 +23,22 @@ import {
 import { generateSigningSecret } from "@/lib/adapters/http";
 import { checkChannelAdd } from "@/lib/tier-limits";
 import { isValidTier } from "@/lib/stripe";
+import { updateChannelSeverityFilter } from "@/lib/customers";
 import type {
   ChannelConfig,
   ChannelType,
+  ChannelSeverityFilter,
+  SeverityClass,
   Tier,
 } from "@/types/database.types";
+
+const SEVERITY_CLASSES: SeverityClass[] = ["I", "II", "III"];
+
+function isSeverityClass(value: unknown): value is SeverityClass {
+  return (
+    typeof value === "string" && SEVERITY_CLASSES.includes(value as SeverityClass)
+  );
+}
 
 export const runtime = "nodejs";
 
@@ -168,5 +179,81 @@ export async function DELETE(request: Request) {
   } catch (err) {
     console.error("/api/account/channels DELETE failed:", err);
     return NextResponse.json({ error: "delete_failed" }, { status: 500 });
+  }
+}
+
+// PATCH /api/account/channels?id=<uuid> — body { severity_filter: {min_class}|null }
+// Per-channel severity routing (Pro+ only). Bead infrastructure-dxkk.
+//
+// Tier gate: starter customers cannot set per-channel filters at all (the
+// UI is read-only); the API rejects with 400 channel_severity_starter.
+export async function PATCH(request: Request) {
+  const customerId = await authCustomerId();
+  if (!customerId) {
+    return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+  }
+
+  const url = new URL(request.url);
+  const id = url.searchParams.get("id");
+  if (!id || !/^[0-9a-f-]{36}$/.test(id)) {
+    return NextResponse.json({ error: "invalid_id" }, { status: 400 });
+  }
+
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "invalid_json" }, { status: 400 });
+  }
+
+  // severity_filter: { min_class } | null. Anything else is rejected.
+  let nextFilter: ChannelSeverityFilter | null;
+  if (body.severity_filter === null) {
+    nextFilter = null;
+  } else if (
+    body.severity_filter &&
+    typeof body.severity_filter === "object" &&
+    isSeverityClass((body.severity_filter as Record<string, unknown>).min_class)
+  ) {
+    nextFilter = {
+      min_class: (body.severity_filter as { min_class: SeverityClass }).min_class,
+    };
+  } else {
+    return NextResponse.json({ error: "invalid_severity_filter" }, { status: 400 });
+  }
+
+  try {
+    const supabase = getSupabase();
+
+    // Tier gate: starter customers cannot set per-channel filters.
+    const { data: customerRow } = await supabase
+      .from("customers")
+      .select("tier")
+      .eq("id", customerId)
+      .maybeSingle<{ tier: string }>();
+    if (!customerRow) {
+      return NextResponse.json({ error: "customer_not_found" }, { status: 404 });
+    }
+    const tier: Tier = isValidTier(customerRow.tier) ? customerRow.tier : "starter";
+    if (tier === "starter") {
+      return NextResponse.json(
+        { error: "channel_severity_starter", tier },
+        { status: 400 },
+      );
+    }
+
+    const { updated } = await updateChannelSeverityFilter(
+      supabase,
+      customerId,
+      id,
+      nextFilter,
+    );
+    if (updated === 0) {
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
+    }
+    return NextResponse.json({ ok: true, severity_filter: nextFilter });
+  } catch (err) {
+    console.error("/api/account/channels PATCH failed:", err);
+    return NextResponse.json({ error: "update_failed" }, { status: 500 });
   }
 }

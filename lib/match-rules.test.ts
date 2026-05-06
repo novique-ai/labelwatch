@@ -39,6 +39,7 @@ function channel(overrides: Partial<CustomerChannelRow> = {}): CustomerChannelRo
     type: "slack",
     config: { webhook_url: "https://hooks.slack.com/services/T/B/X" },
     enabled: true,
+    severity_filter: null,
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
     ...overrides,
@@ -197,6 +198,70 @@ describe("isRecallEligibleForChannel — severity gate", () => {
         recallClass: null,
         channelType: "slack",
         severityPrefs: { default_min_class: "III" },
+      }),
+    ).toBe(false);
+  });
+});
+
+// -- channel.severity_filter precedence (bead infrastructure-dxkk) -----------
+
+describe("isRecallEligibleForChannel — channel.severity_filter (dxkk)", () => {
+  it("channel filter overrides profile default (more permissive)", () => {
+    // Profile says I-only; channel says III-or-higher → Class III passes.
+    expect(
+      isRecallEligibleForChannel({
+        recallClass: "Class III",
+        channelType: "slack",
+        severityPrefs: { default_min_class: "I" },
+        channelSeverityFilter: { min_class: "III" },
+      }),
+    ).toBe(true);
+  });
+
+  it("channel filter overrides profile default (more restrictive)", () => {
+    // Profile says III-or-higher; channel says I-only → Class III rejected.
+    expect(
+      isRecallEligibleForChannel({
+        recallClass: "Class III",
+        channelType: "slack",
+        severityPrefs: { default_min_class: "III" },
+        channelSeverityFilter: { min_class: "I" },
+      }),
+    ).toBe(false);
+  });
+
+  it("channel filter wins over legacy per_channel JSON", () => {
+    // Both set, channel filter takes precedence (most specific source).
+    expect(
+      isRecallEligibleForChannel({
+        recallClass: "Class III",
+        channelType: "slack",
+        severityPrefs: {
+          default_min_class: "II",
+          per_channel: { slack: { min_class: "II" } },
+        },
+        channelSeverityFilter: { min_class: "III" },
+      }),
+    ).toBe(true);
+  });
+
+  it("null channel filter falls through to profile default", () => {
+    expect(
+      isRecallEligibleForChannel({
+        recallClass: "Class III",
+        channelType: "slack",
+        severityPrefs: { default_min_class: "II" },
+        channelSeverityFilter: null,
+      }),
+    ).toBe(false);
+  });
+
+  it("undefined channel filter falls through to profile default", () => {
+    expect(
+      isRecallEligibleForChannel({
+        recallClass: "Class III",
+        channelType: "slack",
+        severityPrefs: { default_min_class: "II" },
       }),
     ).toBe(false);
   });
