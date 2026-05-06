@@ -8,7 +8,7 @@
 
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
-import { getStripe } from "@/lib/stripe";
+import { getStripe, isValidTier } from "@/lib/stripe";
 import { getSupabase } from "@/lib/supabase";
 import { finalizeOnboarding, upsertCustomerSkeleton } from "@/lib/customers";
 import { runCustomerBackfill } from "@/lib/matcher";
@@ -21,6 +21,7 @@ import {
   decodeOAuthCookie,
 } from "@/lib/slack-oauth";
 import { generateSigningSecret } from "@/lib/adapters/http";
+import { checkBrandCap } from "@/lib/tier-limits";
 import {
   INGREDIENT_CATEGORIES,
   type ChannelConfig,
@@ -28,6 +29,7 @@ import {
   type IngredientCategory,
   type SeverityClass,
   type SeverityPreferences,
+  type Tier,
 } from "@/types/database.types";
 
 export const runtime = "nodejs";
@@ -145,6 +147,25 @@ export async function POST(request: Request) {
     .map((a) => a.trim())
     .filter((a) => a.length > 0 && a.length <= 200)
     .slice(0, 50);
+
+  // Per-tier brand-identity cap (firm_name + aliases). Defaults to starter
+  // when metadata is missing — most restrictive stance for any unknown tier.
+  // Bead infrastructure-0a0x.
+  const tierMeta = (session.metadata?.tier ?? "").toLowerCase();
+  const tier: Tier = isValidTier(tierMeta) ? tierMeta : "starter";
+  const firmName = (session.customer_details?.name ?? "").trim();
+  const verdict = checkBrandCap(tier, firmName.length > 0, firmAliases.length);
+  if (!verdict.allowed) {
+    return NextResponse.json(
+      {
+        error: "brand_cap_exceeded",
+        tier: verdict.tier,
+        cap: verdict.cap,
+        attempted: verdict.attempted,
+      },
+      { status: 400 },
+    );
+  }
 
   const categoriesRaw = Array.isArray(body.ingredient_categories)
     ? body.ingredient_categories

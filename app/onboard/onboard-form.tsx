@@ -8,6 +8,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { TIER_BRAND_CAP } from "@/lib/tier-limits";
 import {
   INGREDIENT_CATEGORIES,
   type ChannelConfig,
@@ -79,6 +80,14 @@ export default function OnboardForm({
   const firmName = initialFirmName;
   const [aliasInput, setAliasInput] = useState("");
   const [aliases, setAliases] = useState<string[]>([]);
+  // Per-tier brand-identity cap. firm_name itself counts as one identity, so
+  // remaining alias slots = cap - (firmName ? 1 : 0) - aliases.length. null
+  // cap (team) means unlimited. Bead infrastructure-0a0x.
+  const brandCap = TIER_BRAND_CAP[tier];
+  const usedIdentities = (firmName ? 1 : 0) + aliases.length;
+  const aliasSlotsRemaining =
+    brandCap === null ? Infinity : Math.max(0, brandCap - usedIdentities);
+  const aliasInputDisabled = aliasSlotsRemaining <= 0;
 
   // Step 2
   const [categories, setCategories] = useState<Set<IngredientCategory>>(new Set());
@@ -146,6 +155,7 @@ export default function OnboardForm({
   function addAlias() {
     const a = aliasInput.trim();
     if (!a) return;
+    if (aliasSlotsRemaining <= 0) return;
     if (aliases.includes(a)) {
       setAliasInput("");
       return;
@@ -282,8 +292,15 @@ export default function OnboardForm({
           </label>
 
           <label className="block mb-3">
-            <span className="block font-mono text-[10px] uppercase tracking-[0.3em] text-ink-muted mb-2">
-              Aliases, DBAs, subsidiaries
+            <span className="flex items-baseline justify-between mb-2">
+              <span className="block font-mono text-[10px] uppercase tracking-[0.3em] text-ink-muted">
+                Aliases, DBAs, subsidiaries
+              </span>
+              {brandCap !== null && (
+                <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-ink-muted">
+                  {usedIdentities} of {brandCap} brands
+                </span>
+              )}
             </span>
             <div className="flex gap-2">
               <input
@@ -296,18 +313,34 @@ export default function OnboardForm({
                     addAlias();
                   }
                 }}
-                placeholder="e.g. Acme Supplements, Inc."
-                className="flex-1 rounded border border-rule bg-paper px-3 py-2 text-ink focus:outline-none focus:border-ink"
+                disabled={aliasInputDisabled}
+                placeholder={
+                  aliasInputDisabled
+                    ? tier === "starter"
+                      ? "Starter monitors a single brand"
+                      : "Brand limit reached"
+                    : "e.g. Acme Supplements, Inc."
+                }
+                className="flex-1 rounded border border-rule bg-paper px-3 py-2 text-ink focus:outline-none focus:border-ink disabled:opacity-50 disabled:cursor-not-allowed"
               />
               <button
                 type="button"
                 onClick={addAlias}
-                className="rounded border border-ink px-4 py-2 font-mono text-[10px] uppercase tracking-[0.2em] hover:bg-ink hover:text-paper"
+                disabled={aliasInputDisabled}
+                className="rounded border border-ink px-4 py-2 font-mono text-[10px] uppercase tracking-[0.2em] hover:bg-ink hover:text-paper disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-paper disabled:hover:text-ink"
               >
                 Add
               </button>
             </div>
           </label>
+
+          {aliasInputDisabled && tier !== "team" && (
+            <p className="mb-6 text-sm text-ink-muted">
+              {tier === "starter"
+                ? "Starter covers one brand. Upgrade to Pro to monitor up to 5 brands or aliases."
+                : "Pro covers 5 brands. Upgrade to Team for unlimited brands."}
+            </p>
+          )}
 
           {aliases.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-6">
