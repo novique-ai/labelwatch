@@ -25,6 +25,9 @@ import {
 } from "@/lib/customer-session";
 import { getSupabase } from "@/lib/supabase";
 import { addCustomerChannel } from "@/lib/customers";
+import { checkChannelAdd } from "@/lib/tier-limits";
+import { isValidTier } from "@/lib/stripe";
+import type { Tier } from "@/types/database.types";
 
 export const runtime = "nodejs";
 
@@ -117,6 +120,41 @@ export async function GET(request: Request) {
     }
     try {
       const supabase = getSupabase();
+
+      // Tier-aware channel-count cap (gvqx). Slack is allow-listed for every
+      // tier so we only check the count here. Defaults to starter when tier
+      // is unparseable for safety.
+      const { data: customerRow } = await supabase
+        .from("customers")
+        .select("tier")
+        .eq("id", decoded.customerId)
+        .maybeSingle<{ tier: string }>();
+      if (!customerRow) {
+        return backToAccount({ error: "customer_not_found" });
+      }
+      const tier: Tier = isValidTier(customerRow.tier)
+        ? customerRow.tier
+        : "starter";
+
+      const { count: currentCount, error: countErr } = await supabase
+        .from("customer_channels")
+        .select("id", { count: "exact", head: true })
+        .eq("customer_id", decoded.customerId);
+      if (countErr) {
+        console.error("slack oauth: channel count failed:", countErr);
+        return backToAccount({ error: "count_failed" });
+      }
+
+      const verdict = checkChannelAdd(tier, "slack", currentCount ?? 0);
+      if (!verdict.allowed) {
+        return backToAccount({
+          error:
+            verdict.reason === "cap_exceeded"
+              ? "channel_cap_exceeded"
+              : "channel_type_not_allowed",
+        });
+      }
+
       await addCustomerChannel(supabase, decoded.customerId, {
         type: "slack",
         config: { webhook_url: result.incoming_webhook.url },

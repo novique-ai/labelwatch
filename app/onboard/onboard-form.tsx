@@ -8,7 +8,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { TIER_BRAND_CAP } from "@/lib/tier-limits";
+import { TIER_ALLOWED_CHANNEL_TYPES, TIER_BRAND_CAP } from "@/lib/tier-limits";
 import {
   INGREDIENT_CATEGORIES,
   type ChannelConfig,
@@ -466,22 +466,42 @@ export default function OnboardForm({
               Channel type
             </legend>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {(["email", "slack", "teams", "http"] as ChannelType[]).map((t) => (
-                <label
-                  key={t}
-                  className="flex items-center justify-center gap-2 rounded border border-rule px-3 py-2 hover:border-ink cursor-pointer"
-                >
-                  <input
-                    type="radio"
-                    name="channel-type"
-                    checked={channel.type === t}
-                    onChange={() => setChannel({ ...channel, type: t })}
-                    className="h-4 w-4"
-                  />
-                  <span className="capitalize">{t}</span>
-                </label>
-              ))}
+              {(["email", "slack", "teams", "http"] as ChannelType[]).map((t) => {
+                const allowed = TIER_ALLOWED_CHANNEL_TYPES[tier].includes(t);
+                return (
+                  <label
+                    key={t}
+                    title={allowed ? undefined : `Available on Pro and Team`}
+                    className={`flex items-center justify-center gap-2 rounded border border-rule px-3 py-2 ${
+                      allowed
+                        ? "hover:border-ink cursor-pointer"
+                        : "opacity-50 cursor-not-allowed"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="channel-type"
+                      checked={channel.type === t}
+                      disabled={!allowed}
+                      onChange={() => allowed && setChannel({ ...channel, type: t })}
+                      className="h-4 w-4"
+                    />
+                    <span className="capitalize">{t}</span>
+                    {!allowed && (
+                      <span className="font-mono text-[8px] uppercase tracking-[0.2em] text-ink-muted ml-1">
+                        Pro+
+                      </span>
+                    )}
+                  </label>
+                );
+              })}
             </div>
+            {tier === "starter" && (
+              <p className="mt-3 text-sm text-ink-muted">
+                Starter delivers to one Slack channel or email address.
+                Microsoft Teams and HTTP webhooks unlock on Pro.
+              </p>
+            )}
           </fieldset>
 
           {channel.type === "email" && (

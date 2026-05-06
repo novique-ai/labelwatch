@@ -21,9 +21,12 @@ import {
   deleteCustomerChannel,
 } from "@/lib/customers";
 import { generateSigningSecret } from "@/lib/adapters/http";
+import { checkChannelAdd } from "@/lib/tier-limits";
+import { isValidTier } from "@/lib/stripe";
 import type {
   ChannelConfig,
   ChannelType,
+  Tier,
 } from "@/types/database.types";
 
 export const runtime = "nodejs";
@@ -88,6 +91,47 @@ export async function POST(request: Request) {
 
   try {
     const supabase = getSupabase();
+
+    // Tier-aware enforcement: type allowlist + channel-count cap (gvqx).
+    // Both signals come from Supabase to keep the API the source of truth —
+    // the UI gates the same surface but a malicious client could POST
+    // directly. Defaults to starter when tier is unparseable for safety.
+    const { data: customerRow } = await supabase
+      .from("customers")
+      .select("tier")
+      .eq("id", customerId)
+      .maybeSingle<{ tier: string }>();
+    if (!customerRow) {
+      return NextResponse.json({ error: "customer_not_found" }, { status: 404 });
+    }
+    const tier: Tier = isValidTier(customerRow.tier) ? customerRow.tier : "starter";
+
+    const { count: currentCount, error: countErr } = await supabase
+      .from("customer_channels")
+      .select("id", { count: "exact", head: true })
+      .eq("customer_id", customerId);
+    if (countErr) {
+      console.error("/api/account/channels count failed:", countErr);
+      return NextResponse.json({ error: "count_failed" }, { status: 500 });
+    }
+
+    const verdict = checkChannelAdd(tier, channel.type, currentCount ?? 0);
+    if (!verdict.allowed) {
+      return NextResponse.json(
+        {
+          error:
+            verdict.reason === "type_not_allowed"
+              ? "channel_type_not_allowed"
+              : "channel_cap_exceeded",
+          tier: verdict.tier,
+          ...(verdict.reason === "type_not_allowed"
+            ? { type: verdict.type }
+            : { cap: verdict.cap, current: verdict.current }),
+        },
+        { status: 400 },
+      );
+    }
+
     const { id } = await addCustomerChannel(supabase, customerId, channel);
     // Return the signing secret ONCE for HTTP channels — same pattern as
     // /api/onboard. Caller must surface it to the user immediately.

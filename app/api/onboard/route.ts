@@ -21,7 +21,7 @@ import {
   decodeOAuthCookie,
 } from "@/lib/slack-oauth";
 import { generateSigningSecret } from "@/lib/adapters/http";
-import { checkBrandCap } from "@/lib/tier-limits";
+import { checkBrandCap, isChannelTypeAllowed } from "@/lib/tier-limits";
 import {
   INGREDIENT_CATEGORIES,
   type ChannelConfig,
@@ -185,6 +185,21 @@ export async function POST(request: Request) {
   const channel = validateChannel(body.channel);
   if (!channel) {
     return NextResponse.json({ error: "invalid_channel" }, { status: 400 });
+  }
+
+  // Tier allowlist on channel type. The channel-count cap (gvqx) is trivially
+  // satisfied at onboard — this is the customer's first channel — so we only
+  // gate on type here. Cap enforcement lives in /api/account/channels +
+  // /api/slack/oauth/callback for post-onboard channel additions.
+  if (!isChannelTypeAllowed(tier, channel.type)) {
+    return NextResponse.json(
+      {
+        error: "channel_type_not_allowed",
+        tier,
+        type: channel.type,
+      },
+      { status: 400 },
+    );
   }
 
   // Slack channels: pull the webhook URL from the OAuth cookie (HttpOnly,

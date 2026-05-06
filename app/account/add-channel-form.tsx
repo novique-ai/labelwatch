@@ -5,12 +5,28 @@
 // - Email + HTTP go through POST /api/account/channels.
 // - Slack goes through /api/slack/oauth/init?return_to=account, which inserts
 //   the row directly in the OAuth callback (no client-side POST needed).
+//
+// Tier-aware (bead infrastructure-gvqx): hides forbidden types and replaces
+// the form with an upsell when the channel-count cap is reached.
 
 import { useState } from "react";
 import type { CSSProperties } from "react";
 import { useRouter } from "next/navigation";
+import {
+  TIER_ALLOWED_CHANNEL_TYPES,
+  TIER_CHANNEL_CAP,
+} from "@/lib/tier-limits";
 
 type Type = "email" | "slack" | "http";
+
+type Props = {
+  tier: string;
+  channelCount: number;
+};
+
+function isTier(value: string): value is "starter" | "pro" | "team" {
+  return value === "starter" || value === "pro" || value === "team";
+}
 
 const styles: Record<string, CSSProperties> = {
   wrap: {
@@ -90,9 +106,21 @@ const styles: Record<string, CSSProperties> = {
   },
 };
 
-export default function AddChannelForm() {
+export default function AddChannelForm({ tier, channelCount }: Props) {
   const router = useRouter();
-  const [type, setType] = useState<Type>("email");
+
+  // Default to most restrictive tier if the parent passed something unparseable.
+  const safeTier = isTier(tier) ? tier : "starter";
+  const allowedTypes = TIER_ALLOWED_CHANNEL_TYPES[safeTier];
+  const cap = TIER_CHANNEL_CAP[safeTier];
+  const atCap = cap !== null && channelCount >= cap;
+  // The /account form supports email/slack/http (teams launch-hidden by 3mbd).
+  const visibleTypes: Type[] = (["email", "slack", "http"] as const).filter(
+    (t) => allowedTypes.includes(t),
+  );
+  const initialType: Type = visibleTypes[0] ?? "email";
+
+  const [type, setType] = useState<Type>(initialType);
   const [email, setEmail] = useState("");
   const [httpUrl, setHttpUrl] = useState("");
   const [httpAuth, setHttpAuth] = useState("");
@@ -162,12 +190,32 @@ export default function AddChannelForm() {
     }
   }
 
+  if (atCap) {
+    return (
+      <div style={styles.wrap}>
+        <p style={styles.heading}>Add a channel</p>
+        <p style={styles.hint}>
+          {safeTier === "starter"
+            ? `You're on Starter (1 channel). Upgrade to Pro for up to 3 channels and Microsoft Teams + HTTP webhooks.`
+            : `You're on Pro (3 channels). Upgrade to Team for unlimited channels.`}
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div style={styles.wrap}>
-      <p style={styles.heading}>Add a channel</p>
+      <p style={styles.heading}>
+        Add a channel
+        {cap !== null && (
+          <span style={{ marginLeft: 8, color: "var(--color-text-muted)" }}>
+            ({channelCount} of {cap})
+          </span>
+        )}
+      </p>
 
       <div style={styles.typeRow}>
-        {(["email", "slack", "http"] as Type[]).map((t) => (
+        {visibleTypes.map((t) => (
           <button
             key={t}
             type="button"
@@ -184,6 +232,12 @@ export default function AddChannelForm() {
           </button>
         ))}
       </div>
+
+      {safeTier === "starter" && (
+        <p style={styles.hint}>
+          Starter unlocks email and Slack. Microsoft Teams + HTTP webhooks unlock on Pro.
+        </p>
+      )}
 
       {type === "email" && (
         <>

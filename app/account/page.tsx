@@ -552,7 +552,7 @@ export default async function AccountPage({
               ))
             )}
           </div>
-          <AddChannelForm />
+          <AddChannelForm tier={customer.tier} channelCount={channels.length} />
         </section>
 
         <section style={s.section}>
