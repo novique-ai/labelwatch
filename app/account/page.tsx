@@ -609,7 +609,24 @@ export default async function AccountPage({
         </section>
 
         <section style={s.section}>
-          <p style={s.sectionTitle}>Recent matches (last 20 · {historyLabel})</p>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <p style={{ ...s.sectionTitle, margin: 0 }}>Recent matches (last 20 · {historyLabel})</p>
+            {tierForHistory === "team" ? (
+              <a
+                href="/api/account/export.csv"
+                style={{ fontSize: 11, letterSpacing: 1, textTransform: "uppercase" as const, color: "var(--color-signal-red)", textDecoration: "none", border: "1px solid var(--color-signal-red)", padding: "6px 12px", borderRadius: 3 }}
+              >
+                Export CSV →
+              </a>
+            ) : (
+              <span
+                title="Available on Team — upgrade to export your full match history as CSV"
+                style={{ fontSize: 11, letterSpacing: 1, textTransform: "uppercase" as const, color: "var(--color-text-muted)", border: "1px solid var(--color-border-subtle)", padding: "6px 12px", borderRadius: 3, cursor: "not-allowed" }}
+              >
+                Export CSV <span style={{ textTransform: "none" as const, fontStyle: "italic", letterSpacing: 0 }}>(Team only)</span>
+              </span>
+            )}
+          </div>
           <div style={s.card}>
             {matches.length === 0 ? (
               <p style={s.empty}>
