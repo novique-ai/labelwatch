@@ -141,3 +141,7 @@ export const TIER_DELIVERY_CADENCE: Record<Tier, DeliveryCadence> = {
 export function getDeliveryCadence(tier: Tier): DeliveryCadence {
   return TIER_DELIVERY_CADENCE[tier];
 }
+
+// Maximum number of accepted memberships per Team organization.
+// Bead infrastructure-cin7.
+export const TEAM_MAX_SEATS = 5;

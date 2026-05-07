@@ -57,13 +57,45 @@ export type ChannelConfig =
 
 export type CustomerRow = {
   id: string;
-  stripe_customer_id: string;
+  stripe_customer_id: string | null; // null for member seats (no Stripe sub)
   email: string;
   firm_name: string;
   tier: Tier;
   onboarding_completed_at: string | null;
+  organization_id: string | null; // set on member rows; null for owner/solo
   created_at: string;
   updated_at: string;
+};
+
+// Multi-user org seats — bead infrastructure-cin7.
+export type OrgRow = {
+  id: string;
+  name: string;
+  owner_customer_id: string;
+  created_at: string;
+};
+
+export type MemberRole = "owner" | "admin" | "member";
+
+export type MembershipRow = {
+  id: string;
+  organization_id: string;
+  customer_id: string;
+  role: MemberRole;
+  invited_by: string | null;
+  accepted_at: string;
+  created_at: string;
+};
+
+export type InvitationRow = {
+  id: string;
+  organization_id: string;
+  email: string;
+  role: MemberRole;
+  token: string;
+  expires_at: string;
+  accepted_at: string | null;
+  created_at: string;
 };
 
 export type CustomerProfileRow = {

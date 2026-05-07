@@ -20,6 +20,7 @@ import { signAuditToken } from "@/lib/audit-token";
 import { getStripe, isValidTier } from "@/lib/stripe";
 import { getSupabase } from "@/lib/supabase";
 import { TIER_HISTORY_DAYS, historyCutoffISO, getDeliveryCadence } from "@/lib/tier-limits";
+import { getOrgForCustomer } from "@/lib/organizations";
 import AddChannelForm from "./add-channel-form";
 import ChannelRowActions from "./channel-row-actions";
 import ChannelSeverityControl from "./channel-severity-control";
@@ -34,6 +35,7 @@ type SearchParams = Promise<{
   slack_team?: string;
   slack_error?: string;
   already_onboarded?: string;
+  joined_org?: string;
 }>;
 
 type CustomerRow = {
@@ -41,8 +43,9 @@ type CustomerRow = {
   email: string;
   firm_name: string;
   tier: string;
-  stripe_customer_id: string;
+  stripe_customer_id: string | null;
   onboarding_completed_at: string | null;
+  organization_id: string | null;
 };
 
 type ProfileRow = {
@@ -113,15 +116,27 @@ async function loadDashboardData(customerId: string) {
 
   const { data: customer } = await supabase
     .from("customers")
-    .select("id, email, firm_name, tier, stripe_customer_id, onboarding_completed_at")
+    .select("id, email, firm_name, tier, stripe_customer_id, onboarding_completed_at, organization_id")
     .eq("id", customerId)
     .maybeSingle<CustomerRow>();
   if (!customer) return null;
 
+  // If this is a member seat, load profile/channels/matches from the org owner.
+  // Members have organization_id set; owners and solo customers have NULL.
+  let dataCustomerId = customerId;
+  let orgName: string | null = null;
+  if (customer.organization_id) {
+    const org = await getOrgForCustomer(supabase, customerId);
+    if (org) {
+      dataCustomerId = org.owner_customer_id;
+      orgName = org.name;
+    }
+  }
+
   const { data: profileRaw } = await supabase
     .from("customer_profiles")
     .select("ingredient_categories, firm_aliases, severity_preferences")
-    .eq("customer_id", customerId)
+    .eq("customer_id", dataCustomerId)
     .maybeSingle<ProfileRow>();
   const profile: ProfileRow = profileRaw ?? {
     ingredient_categories: [],
@@ -132,7 +147,7 @@ async function loadDashboardData(customerId: string) {
   const { data: channelsRaw } = await supabase
     .from("customer_channels")
     .select("id, type, config, enabled, severity_filter")
-    .eq("customer_id", customerId)
+    .eq("customer_id", dataCustomerId)
     .order("created_at", { ascending: true });
   const channels: ChannelRow[] = (channelsRaw ?? []) as ChannelRow[];
 
@@ -146,7 +161,7 @@ async function loadDashboardData(customerId: string) {
     .select(
       "id, status, severity_class, matched_value, sent_at, created_at, recall:recalls(recall_number, firm_name_raw, product_description)",
     )
-    .eq("customer_id", customerId);
+    .eq("customer_id", dataCustomerId);
   if (cutoff !== null) {
     matchQuery = matchQuery.gte("created_at", cutoff);
   }
@@ -163,46 +178,48 @@ async function loadDashboardData(customerId: string) {
     const { count } = await supabase
       .from("delivery_jobs")
       .select("id", { count: "exact", head: true })
-      .eq("customer_id", customerId)
+      .eq("customer_id", dataCustomerId)
       .lt("created_at", cutoff);
     hiddenMatchCount = count ?? 0;
   }
 
-  // Stripe subscription details
+  // Stripe subscription details — skipped for member seats (no stripe_customer_id).
   let trialEndsAt: string | null = null;
-  let subscriptionStatus = "unknown";
-  try {
-    const subs = await stripe.subscriptions.list({
-      customer: customer.stripe_customer_id,
-      status: "all",
-      limit: 1,
-    });
-    const sub = subs.data[0];
-    if (sub) {
-      subscriptionStatus = sub.status;
-      if (sub.trial_end) {
-        trialEndsAt = new Date(sub.trial_end * 1000).toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        });
-      }
-    }
-  } catch (err) {
-    console.error("/account: stripe subscription lookup failed:", err);
-  }
-
-  // Customer Portal session URL
-  const origin = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.label.watch";
+  let subscriptionStatus = customer.organization_id ? "team_member" : "unknown";
   let portalUrl: string | null = null;
-  try {
-    const portal = await stripe.billingPortal.sessions.create({
-      customer: customer.stripe_customer_id,
-      return_url: `${origin}/account`,
-    });
-    portalUrl = portal.url;
-  } catch (err) {
-    console.error("/account: portal session create failed:", err);
+
+  if (customer.stripe_customer_id) {
+    try {
+      const subs = await stripe.subscriptions.list({
+        customer: customer.stripe_customer_id,
+        status: "all",
+        limit: 1,
+      });
+      const sub = subs.data[0];
+      if (sub) {
+        subscriptionStatus = sub.status;
+        if (sub.trial_end) {
+          trialEndsAt = new Date(sub.trial_end * 1000).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          });
+        }
+      }
+    } catch (err) {
+      console.error("/account: stripe subscription lookup failed:", err);
+    }
+
+    const origin = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.label.watch";
+    try {
+      const portal = await stripe.billingPortal.sessions.create({
+        customer: customer.stripe_customer_id,
+        return_url: `${origin}/account`,
+      });
+      portalUrl = portal.url;
+    } catch (err) {
+      console.error("/account: portal session create failed:", err);
+    }
   }
 
   // Mint an audit-access token so the dashboard can link to /audit?t=...
@@ -227,6 +244,7 @@ async function loadDashboardData(customerId: string) {
     subscriptionStatus,
     portalUrl,
     auditUrl,
+    orgName,
   };
 }
 
@@ -433,7 +451,7 @@ export default async function AccountPage({
   const data = await loadDashboardData(customerId);
   if (!data) redirect("/?account=not_found");
 
-  const { customer, profile, channels, matches, hiddenMatchCount, trialEndsAt, subscriptionStatus, portalUrl, auditUrl } = data;
+  const { customer, profile, channels, matches, hiddenMatchCount, trialEndsAt, subscriptionStatus, portalUrl, auditUrl, orgName } = data;
   const tierForHistory = isValidTier(customer.tier) ? customer.tier : "starter";
   const historyDays = TIER_HISTORY_DAYS[tierForHistory];
   const historyLabel =
@@ -452,6 +470,8 @@ export default async function AccountPage({
   const slackTeam = params.slack_team;
   const slackError = params.slack_error;
   const showAlreadyOnboarded = params.already_onboarded === "1";
+  const joinedOrg = params.joined_org === "1";
+  const isMember = !!customer.organization_id;
 
   return (
     <main style={s.page}>
@@ -459,12 +479,31 @@ export default async function AccountPage({
         <Link href="/" style={{ ...s.brand, color: "var(--color-text-primary)", textDecoration: "none" }}>
           label<span style={{ color: "var(--color-signal-red)" }}>.</span>watch
         </Link>
-        <span>Dashboard</span>
+        <div style={{ display: "flex", gap: 24, alignItems: "center" }}>
+          {tierForHistory === "team" && (
+            <Link href="/account/team" style={{ fontSize: 11, letterSpacing: 1.4, textTransform: "uppercase" as const, color: "var(--color-text-muted)", textDecoration: "none" }}>
+              Team →
+            </Link>
+          )}
+          <span>Dashboard</span>
+        </div>
       </div>
 
       <div style={s.container}>
         <h1 style={s.h1}>Your watch.</h1>
         <p style={s.sub}>{customer.firm_name} · {customer.email}</p>
+
+        {joinedOrg && (
+          <div style={s.flashOk}>
+            Welcome to the team! You now have access to {orgName ?? "your organization"}&apos;s LabelWatch dashboard.
+          </div>
+        )}
+
+        {isMember && orgName && !joinedOrg && (
+          <div style={{ ...s.flashOk, background: "transparent", border: "1px solid var(--color-border-subtle)" }}>
+            Viewing <strong>{orgName}</strong>&apos;s workspace.
+          </div>
+        )}
 
         {signingSecret && (
           <div style={s.signingSecretBanner}>

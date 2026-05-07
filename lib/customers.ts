@@ -24,6 +24,7 @@ import type {
 } from "@/types/database.types";
 import { mintAndEmailAuditAccess } from "./audit-access";
 import { appendFirmAliases, findOrCreateFirm } from "./firms";
+import { createOrgForOwner } from "./organizations";
 
 function tierFromMetadata(meta: Stripe.Metadata | null | undefined): Tier | null {
   const value = (meta?.tier ?? "").toLowerCase();
@@ -119,7 +120,7 @@ export async function finalizeOnboarding(
 ): Promise<{ customerId: string; alreadyOnboarded: boolean }> {
   const { data: customer, error: customerError } = await supabase
     .from("customers")
-    .select("id, firm_name, onboarding_completed_at")
+    .select("id, firm_name, tier, onboarding_completed_at")
     .eq("stripe_customer_id", stripeCustomerId)
     .single();
 
@@ -192,6 +193,16 @@ export async function finalizeOnboarding(
 
   if (stampError) {
     throw new Error(`onboarding stamp failed: ${stampError.message}`);
+  }
+
+  // For Team tier: create org + owner membership. Non-fatal — org creation
+  // failure does not block onboarding; the customer can manage seats later.
+  if (customer.tier === "team") {
+    try {
+      await createOrgForOwner(supabase, customer.id, customer.firm_name);
+    } catch (err) {
+      console.error("finalizeOnboarding: org creation failed (non-fatal)", err);
+    }
   }
 
   // Mint + email the audit-access link. Non-fatal on failure.
