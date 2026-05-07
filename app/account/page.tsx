@@ -486,9 +486,14 @@ export default async function AccountPage({
                 Team →
               </Link>
               {!isMember && (
-                <Link href="/account/rules" style={{ fontSize: 11, letterSpacing: 1.4, textTransform: "uppercase" as const, color: "var(--color-text-muted)", textDecoration: "none" }}>
-                  Rules →
-                </Link>
+                <>
+                  <Link href="/account/rules" style={{ fontSize: 11, letterSpacing: 1.4, textTransform: "uppercase" as const, color: "var(--color-text-muted)", textDecoration: "none" }}>
+                    Rules →
+                  </Link>
+                  <Link href="/account/apikeys" style={{ fontSize: 11, letterSpacing: 1.4, textTransform: "uppercase" as const, color: "var(--color-text-muted)", textDecoration: "none" }}>
+                    API →
+                  </Link>
+                </>
               )}
             </>
           )}

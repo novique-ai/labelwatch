@@ -145,3 +145,7 @@ export function getDeliveryCadence(tier: Tier): DeliveryCadence {
 // Maximum number of accepted memberships per Team organization.
 // Bead infrastructure-cin7.
 export const TEAM_MAX_SEATS = 5;
+
+// Maximum number of active (non-revoked) API keys per Team organization.
+// Bead infrastructure-2mkx.
+export const TEAM_MAX_API_KEYS = 5;

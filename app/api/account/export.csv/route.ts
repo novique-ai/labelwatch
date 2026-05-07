@@ -1,7 +1,7 @@
-// GET /api/account/export.csv — bead infrastructure-0sco.
+// GET /api/account/export.csv — beads infrastructure-0sco + infrastructure-2mkx.
 // Team-only CSV download of the customer's full match history.
 //
-// Auth: lw_customer cookie (same pattern as /api/account/channels).
+// Auth: lw_customer cookie OR Authorization: Bearer lw_<api_key> (2mkx addition).
 // Tier gate: 403 for starter and pro.
 // Optional query params:
 //   ?from=YYYY-MM-DD  — filter created_at >= from (inclusive)
@@ -16,6 +16,7 @@ import { cookies } from "next/headers";
 import { CUSTOMER_COOKIE_NAME, decodeCustomerCookie } from "@/lib/customer-session";
 import { getSupabase } from "@/lib/supabase";
 import { isValidTier } from "@/lib/stripe";
+import { verifyApiKey } from "@/lib/api-key";
 import type { Tier } from "@/types/database.types";
 
 export const runtime = "nodejs";
@@ -28,12 +29,21 @@ async function authCustomerId(): Promise<string | null> {
 }
 
 export async function GET(request: Request) {
-  const customerId = await authCustomerId();
-  if (!customerId) {
-    return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
-  }
-
   const supabase = getSupabase();
+
+  // Auth: Bearer API key (2mkx) takes priority, then lw_customer cookie (0sco).
+  let customerId: string | null = null;
+  const authHeader = request.headers.get("authorization");
+  const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+
+  if (bearerToken) {
+    const verified = await verifyApiKey(supabase, bearerToken);
+    if (!verified) return NextResponse.json({ error: "invalid_api_key" }, { status: 401 });
+    customerId = verified.ownerCustomerId;
+  } else {
+    customerId = await authCustomerId();
+    if (!customerId) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+  }
 
   const { data: customerRow } = await supabase
     .from("customers")

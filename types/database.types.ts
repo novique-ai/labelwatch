@@ -98,6 +98,17 @@ export type InvitationRow = {
   created_at: string;
 };
 
+// API keys — bead infrastructure-2mkx.
+export type ApiKeyRow = {
+  id: string;
+  organization_id: string;
+  name: string;
+  key_hash: string;
+  created_at: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
+};
+
 // Custom alert rules — bead infrastructure-yo7k.
 export type AlertRuleRow = {
   id: string;
