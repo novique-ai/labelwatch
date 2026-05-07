@@ -27,7 +27,7 @@ import {
   failMatcherRun,
   getWatermark,
 } from "./matcher-runs";
-import { bulkInsertDeliveryJobs } from "./delivery-jobs";
+import { bulkInsertDeliveryJobs, bulkInsertDigestJobs } from "./delivery-jobs";
 import type {
   CustomerChannelRow,
   CustomerProfileRow,
@@ -159,11 +159,20 @@ export async function runMatcher(): Promise<MatcherResult> {
       watermarkOut = recall.first_seen_at;
     }
 
-    // 7. Bulk-insert candidates as delivery_jobs.
-    if (allCandidates.length > 0) {
-      const result = await bulkInsertDeliveryJobs(supabase, runId, allCandidates);
-      jobsEmitted = result.inserted;
-      jobsConflicted = result.conflicted;
+    // 7. Split candidates by tier and bulk-insert.
+    //    Starter → digest_pending (daily bundle). Pro/Team → pending (realtime).
+    const realtimeCandidates = allCandidates.filter((c) => c.tier !== "starter");
+    const digestCandidates = allCandidates.filter((c) => c.tier === "starter");
+
+    if (realtimeCandidates.length > 0) {
+      const r = await bulkInsertDeliveryJobs(supabase, runId, realtimeCandidates);
+      jobsEmitted += r.inserted;
+      jobsConflicted += r.conflicted;
+    }
+    if (digestCandidates.length > 0) {
+      const d = await bulkInsertDigestJobs(supabase, runId, digestCandidates);
+      jobsEmitted += d.inserted;
+      jobsConflicted += d.conflicted;
     }
 
     // 8. Close run.
@@ -397,7 +406,7 @@ async function fetchEligibleCustomerById(
 ): Promise<CustomerMatchContext | null> {
   const { data, error } = await supabase
     .from("customers")
-    .select("id, customer_profiles(*), customer_channels(*)")
+    .select("id, tier, customer_profiles(*), customer_channels(*)")
     .eq("id", customerId)
     .not("onboarding_completed_at", "is", null)
     .maybeSingle();
@@ -408,6 +417,7 @@ async function fetchEligibleCustomerById(
 
   type EmbedRow = {
     id: CustomerRow["id"];
+    tier: CustomerRow["tier"];
     customer_profiles: CustomerProfileRow[] | CustomerProfileRow | null;
     customer_channels: CustomerChannelRow[];
   };
@@ -418,7 +428,7 @@ async function fetchEligibleCustomerById(
   if (!profile) return null;
   const enabled = (row.customer_channels ?? []).filter((c) => c.enabled === true);
   if (enabled.length === 0) return null;
-  return { profile, channels: enabled };
+  return { tier: row.tier, profile, channels: enabled };
 }
 
 async function fetchEligibleCustomers(
@@ -429,7 +439,7 @@ async function fetchEligibleCustomers(
   const { data, error } = await supabase
     .from("customers")
     .select(
-      "id, customer_profiles(*), customer_channels(*)",
+      "id, tier, customer_profiles(*), customer_channels(*)",
     )
     .not("onboarding_completed_at", "is", null);
   if (error) {
@@ -442,6 +452,7 @@ async function fetchEligibleCustomers(
   // A customer is eligible iff it has a profile AND ≥1 enabled channel.
   type EmbedRow = {
     id: CustomerRow["id"];
+    tier: CustomerRow["tier"];
     customer_profiles: CustomerProfileRow[] | CustomerProfileRow | null;
     customer_channels: CustomerChannelRow[];
   };
@@ -456,7 +467,7 @@ async function fetchEligibleCustomers(
       (c) => c.enabled === true,
     );
     if (enabled.length === 0) continue;
-    out.push({ profile, channels: enabled });
+    out.push({ tier: row.tier, profile, channels: enabled });
   }
   return out;
 }

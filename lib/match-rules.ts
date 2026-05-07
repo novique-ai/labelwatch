@@ -20,6 +20,7 @@ import {
   type RecallRow,
   type SeverityClass,
   type SeverityPreferences,
+  type Tier,
 } from "@/types/database.types";
 
 // Ingredient-category keyword catalogue. Tunable. Keep keywords lowercase;
@@ -143,6 +144,8 @@ export function isRecallEligibleForChannel(args: {
 
 // Top-level pure matcher output tuple. The matcher accumulates these across
 // recalls × customers × channels and bulk-inserts them as delivery_jobs rows.
+// tier is propagated from CustomerMatchContext so the caller can route
+// realtime vs. digest inserts without a second customer lookup.
 export type MatchCandidate = {
   recallId: string;
   customerId: string;
@@ -150,10 +153,12 @@ export type MatchCandidate = {
   matchReason: MatchReason;
   matchedValue: string;
   severityClass: RecallClassification;
+  tier: Tier;
 };
 
 // Per-customer input bundle for matchCandidates.
 export type CustomerMatchContext = {
+  tier: Tier;
   profile: CustomerProfileRow;
   channels: CustomerChannelRow[]; // already filtered to enabled=true upstream
 };
@@ -185,7 +190,7 @@ export function matchCandidates(args: {
 
   if (!recall.classification) return out;
 
-  for (const { profile, channels } of customers) {
+  for (const { tier, profile, channels } of customers) {
     if (channels.length === 0) continue;
 
     const aliasHit = matchFirmAliases(normalizedFirmName, profile.firm_aliases);
@@ -212,6 +217,7 @@ export function matchCandidates(args: {
           matchReason: "firm_alias",
           matchedValue: aliasHit,
           severityClass: recall.classification,
+          tier,
         });
       } else {
         // ingredient_category — emit one candidate per matched category.
@@ -225,6 +231,7 @@ export function matchCandidates(args: {
           matchReason: "ingredient_category",
           matchedValue: categoryHits[0],
           severityClass: recall.classification,
+          tier,
         });
       }
     }

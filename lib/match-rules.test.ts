@@ -281,6 +281,7 @@ describe("matchCandidates", () => {
       recallCategories: ["protein"],
       customers: [
         {
+          tier: "starter" as const,
           profile: profile({
             firm_aliases: ["ambrosia brands llc"],
             ingredient_categories: ["protein"],
@@ -308,6 +309,7 @@ describe("matchCandidates", () => {
       recallCategories: ["vitamins", "childrens"],
       customers: [
         {
+          tier: "pro" as const,
           profile: profile({
             firm_aliases: ["different firm"],
             ingredient_categories: ["vitamins"],
@@ -330,6 +332,7 @@ describe("matchCandidates", () => {
       recallCategories: [],
       customers: [
         {
+          tier: "starter" as const,
           profile: profile({ firm_aliases: ["ambrosia"], severity_preferences: {} }),
           channels: [], // empty = nothing enabled
         },
@@ -345,6 +348,7 @@ describe("matchCandidates", () => {
       recallCategories: ["protein"],
       customers: [
         {
+          tier: "starter" as const,
           profile: profile({
             firm_aliases: ["ambrosia"],
             ingredient_categories: ["protein"],
@@ -364,6 +368,7 @@ describe("matchCandidates", () => {
       recallCategories: ["protein"],
       customers: [
         {
+          tier: "starter" as const,
           profile: profile({
             firm_aliases: ["ambrosia"],
             severity_preferences: {},
@@ -382,6 +387,7 @@ describe("matchCandidates", () => {
       recallCategories: ["protein", "vitamins"],
       customers: [
         {
+          tier: "team" as const,
           profile: profile({
             firm_aliases: ["ambrosia"],
             ingredient_categories: ["protein"],

@@ -19,7 +19,7 @@ import { CUSTOMER_COOKIE_NAME, decodeCustomerCookie } from "@/lib/customer-sessi
 import { signAuditToken } from "@/lib/audit-token";
 import { getStripe, isValidTier } from "@/lib/stripe";
 import { getSupabase } from "@/lib/supabase";
-import { TIER_HISTORY_DAYS, historyCutoffISO } from "@/lib/tier-limits";
+import { TIER_HISTORY_DAYS, historyCutoffISO, getDeliveryCadence } from "@/lib/tier-limits";
 import AddChannelForm from "./add-channel-form";
 import ChannelRowActions from "./channel-row-actions";
 import ChannelSeverityControl from "./channel-severity-control";
@@ -545,6 +545,17 @@ export default async function AccountPage({
               </div>
               <div style={s.kvKey}>Min severity</div>
               <div>Class {profile.severity_preferences?.default_min_class ?? "II"} or higher</div>
+              <div style={s.kvKey}>Alert cadence</div>
+              <div>
+                {getDeliveryCadence(tierForHistory) === "realtime"
+                  ? "Realtime — within minutes of FDA publication"
+                  : <div>
+                      Daily digest · 9 am UTC
+                      <span style={{ fontSize: 11, color: "var(--color-text-muted)", fontStyle: "italic", marginLeft: 8 }}>
+                        (upgrade to Pro for realtime)
+                      </span>
+                    </div>}
+              </div>
             </div>
           </div>
         </section>
@@ -617,7 +628,7 @@ export default async function AccountPage({
                     </div>
                   </div>
                   <div style={{ fontSize: 11, color: "var(--color-text-muted)", textAlign: "right" }}>
-                    {m.status === "sent" ? "delivered" : m.status}
+                    {m.status === "sent" ? "delivered" : m.status === "digest_pending" ? "pending digest" : m.status}
                     <br />
                     {new Date(m.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                   </div>

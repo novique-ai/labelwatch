@@ -6,7 +6,8 @@
 //   - 0a0x — brand cap (firm_aliases count)
 //   - gvqx — channel cap + channel-type allowlist
 //   - fovp — history window cap (delivery_jobs visibility)
-// Sibling beads (severity routing, cadence split, custom rules, seats,
+//   - xzuz — delivery cadence split (daily digest vs realtime)
+// Sibling beads (severity routing, custom rules, seats,
 // CSV export, REST API) land here as they ship.
 
 import type { ChannelType, Tier } from "@/types/database.types";
@@ -123,4 +124,20 @@ export function historyCutoffISO(tier: Tier, now: Date = new Date()): string | n
   if (days === null) return null;
   const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
   return cutoff.toISOString();
+}
+
+// Per-tier delivery cadence. Starter receives a once-daily digest at 09:00 UTC;
+// Pro and Team receive realtime alerts within minutes of FDA publication.
+//
+// Bead infrastructure-xzuz.
+export type DeliveryCadence = "daily" | "realtime";
+
+export const TIER_DELIVERY_CADENCE: Record<Tier, DeliveryCadence> = {
+  starter: "daily",
+  pro: "realtime",
+  team: "realtime",
+};
+
+export function getDeliveryCadence(tier: Tier): DeliveryCadence {
+  return TIER_DELIVERY_CADENCE[tier];
 }

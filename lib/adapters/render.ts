@@ -1,4 +1,5 @@
 // Pure rendering helpers for the 4 delivery adapters — bead infrastructure-vlm7.
+// Digest multi-recall render helpers added in bead infrastructure-xzuz.
 // No I/O. Tests live in render.test.ts. All adapters import from here.
 
 import type {
@@ -76,5 +77,149 @@ export function nextAttemptAt(attempts: number): Date {
   return new Date(Date.now() + BACKOFF_MS[idx]);
 }
 
-// Number of attempts after which a job is dead-lettered.
+// Number of attempts after which a realtime job is dead-lettered.
 export const MAX_ATTEMPTS = 5;
+
+// ---------------------------------------------------------------------------
+// Digest render helpers — bead infrastructure-xzuz.
+// Called by lib/digest.ts; NOT called by the per-job adapter files.
+// Produces one multi-recall Slack post / email per (customer × channel) bundle.
+// ---------------------------------------------------------------------------
+
+export type DigestRecall = {
+  job: DeliveryJobRow;
+  recall: RecallRow;
+};
+
+// Slack Block Kit body for a digest bundle. One color-coded attachment per
+// recall, stacked. Top-level `text` is the notification fallback.
+export function buildDigestSlackBody(items: DigestRecall[]): unknown {
+  const date = new Date().toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+  const fallback = `FDA Recall Digest — ${items.length} match${items.length === 1 ? "" : "es"} · ${date}`;
+
+  const attachments = items.map(({ job, recall }) => {
+    const f = buildBodyFields(recall);
+    return {
+      color: severityColor(recall.classification),
+      blocks: [
+        {
+          type: "section",
+          fields: [
+            { type: "mrkdwn", text: `*${headerText(job)}*` },
+            { type: "mrkdwn", text: `*Classification:*\n${f.classification}` },
+            { type: "mrkdwn", text: `*Firm:*\n${f.firm_name_raw}` },
+            { type: "mrkdwn", text: `*Product:*\n${f.product_description}` },
+            { type: "mrkdwn", text: `*Reason:*\n${f.reason_for_recall}` },
+            { type: "mrkdwn", text: `*Initiated:*\n${f.recall_initiation_date}` },
+            { type: "mrkdwn", text: `*Recall #:*\n${f.recall_number}` },
+          ],
+        },
+        {
+          type: "actions",
+          elements: [
+            {
+              type: "button",
+              text: { type: "plain_text", text: "View on FDA →" },
+              url: f.fda_url,
+            },
+          ],
+        },
+      ],
+    };
+  });
+
+  return { text: fallback, attachments };
+}
+
+// Plain-text body for a digest email.
+export function buildDigestEmailText(items: DigestRecall[]): string {
+  const date = new Date().toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+  const lines = [
+    `FDA Recall Digest — ${date}`,
+    `${items.length} match${items.length === 1 ? "" : "es"}`,
+    "",
+  ];
+  for (const { job, recall } of items) {
+    const f = buildBodyFields(recall);
+    lines.push(
+      `--- ${headerText(job)} ---`,
+      `Classification: ${f.classification}`,
+      `Firm: ${f.firm_name_raw}`,
+      `Product: ${f.product_description}`,
+      `Reason: ${f.reason_for_recall}`,
+      `Initiated: ${f.recall_initiation_date}`,
+      `Recall #: ${f.recall_number}`,
+      `FDA source: ${f.fda_url}`,
+      "",
+    );
+  }
+  return lines.join("\n");
+}
+
+// HTML body for a digest email. One recall card per item, separated by a
+// severity-colored top border. Class I in any item triggers URGENT_HEADERS
+// on the send (handled by the caller in lib/digest.ts).
+export function buildDigestEmailHtml(items: DigestRecall[]): string {
+  const date = new Date().toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+  const title = escapeHtml(`FDA Recall Digest — ${date}`);
+  const countLine = escapeHtml(
+    `${items.length} match${items.length === 1 ? "" : "es"}`,
+  );
+
+  const cards = items
+    .map(({ job, recall }) => {
+      const f = buildBodyFields(recall);
+      const color = escapeHtmlAttr(severityColor(recall.classification));
+      return `<div style="border-top: 2px solid ${color}; padding: 16px 0; margin: 16px 0;">
+  <h3 style="margin: 0 0 12px; font-size: 15px;">${escapeHtml(headerText(job))}</h3>
+  <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+    <tr><td style="padding: 3px 8px 3px 0; color: #666; vertical-align: top;"><b>Classification</b></td><td style="padding: 3px 0;">${escapeHtml(f.classification)}</td></tr>
+    <tr><td style="padding: 3px 8px 3px 0; color: #666; vertical-align: top;"><b>Firm</b></td><td style="padding: 3px 0;">${escapeHtml(f.firm_name_raw)}</td></tr>
+    <tr><td style="padding: 3px 8px 3px 0; color: #666; vertical-align: top;"><b>Product</b></td><td style="padding: 3px 0;">${escapeHtml(f.product_description)}</td></tr>
+    <tr><td style="padding: 3px 8px 3px 0; color: #666; vertical-align: top;"><b>Reason</b></td><td style="padding: 3px 0;">${escapeHtml(f.reason_for_recall)}</td></tr>
+    <tr><td style="padding: 3px 8px 3px 0; color: #666; vertical-align: top;"><b>Initiated</b></td><td style="padding: 3px 0;">${escapeHtml(f.recall_initiation_date)}</td></tr>
+    <tr><td style="padding: 3px 8px 3px 0; color: #666; vertical-align: top;"><b>Recall #</b></td><td style="padding: 3px 0; font-family: monospace; font-size: 12px;">${escapeHtml(f.recall_number)}</td></tr>
+  </table>
+  <p style="margin: 10px 0 0; font-size: 13px;">
+    <a href="${escapeHtmlAttr(f.fda_url)}" style="color: #c63a1f; text-decoration: underline;">View on FDA →</a>
+  </p>
+</div>`;
+    })
+    .join("\n");
+
+  return `<div style="font-family: system-ui, sans-serif; max-width: 600px; line-height: 1.5;">
+  <h2 style="margin: 0 0 4px; font-size: 18px;">${title}</h2>
+  <p style="margin: 0 0 16px; font-size: 13px; color: #666;">${countLine}</p>
+  ${cards}
+</div>`.trim();
+}
+
+// Exported so adapters and digest.ts share one copy instead of each
+// defining a private version.
+export function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+export function escapeHtmlAttr(s: string): string {
+  return escapeHtml(s);
+}

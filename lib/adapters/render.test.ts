@@ -29,6 +29,7 @@ function job(overrides: Partial<DeliveryJobRow> = {}): DeliveryJobRow {
     sent_at: null,
     created_at: "2026-01-01T00:00:00Z",
     created_by_matcher_run_id: null,
+    digest_window_date: null,
     ...overrides,
   };
 }

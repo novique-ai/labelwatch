@@ -217,7 +217,8 @@ export type DeliveryJobStatus =
   | "delivering"
   | "sent"
   | "failed"
-  | "dead_letter";
+  | "dead_letter"
+  | "digest_pending";
 
 export type MatcherRunRow = {
   id: string;
@@ -249,6 +250,8 @@ export type DeliveryJobRow = {
   sent_at: string | null;
   created_at: string;
   created_by_matcher_run_id: string | null;
+  // Set for digest_pending rows (bead infrastructure-xzuz). NULL for realtime.
+  digest_window_date: string | null;
 };
 
 // -----------------------------------------------------------------------------

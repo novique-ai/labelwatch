@@ -8,7 +8,7 @@ import type {
   RecallRow,
 } from "@/types/database.types";
 import { sendEmail, URGENT_HEADERS } from "@/lib/resend";
-import { buildBodyFields, headerText } from "./render";
+import { buildBodyFields, escapeHtml, escapeHtmlAttr, headerText } from "./render";
 
 const FROM_DEFAULT = "LabelWatch <alerts@label.watch>";
 
@@ -88,15 +88,3 @@ export async function emailAdapter(
   return { ok: true };
 }
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function escapeHtmlAttr(s: string): string {
-  return escapeHtml(s);
-}
