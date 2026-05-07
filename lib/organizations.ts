@@ -120,7 +120,7 @@ export async function listOrgMembers(
 ): Promise<MembershipRow[]> {
   const { data, error } = await supabase
     .from("memberships")
-    .select("id, organization_id, customer_id, role, invited_by, accepted_at, created_at, customer:customers(email, firm_name)")
+    .select("id, organization_id, customer_id, role, invited_by, accepted_at, created_at, customer:customers!customer_id(email, firm_name)")
     .eq("organization_id", orgId)
     .order("created_at", { ascending: true });
   if (error) throw new Error(`memberships fetch failed: ${error.message}`);
