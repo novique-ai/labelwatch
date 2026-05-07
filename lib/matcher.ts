@@ -28,6 +28,8 @@ import {
   getWatermark,
 } from "./matcher-runs";
 import { bulkInsertDeliveryJobs, bulkInsertDigestJobs } from "./delivery-jobs";
+import { matchCustomRuleCandidates } from "./custom-rules";
+import type { AlertRuleRow } from "@/types/database.types";
 import type {
   CustomerChannelRow,
   CustomerProfileRow,
@@ -128,34 +130,40 @@ export async function runMatcher(): Promise<MatcherResult> {
       };
     }
 
-    // 5. Fetch eligible customers (onboarded + at least one enabled channel)
-    //    with profile + channels nested. PostgREST embed.
+    // 5. Fetch eligible customers + attach custom alert rules for Team orgs.
     const eligibleCustomers = await fetchEligibleCustomers(supabase);
+    const eligibleWithRules = await attachAlertRules(supabase, eligibleCustomers);
 
-    // 6. For each recall, classify + match + persist.
+    // 6. For each recall, classify + match (standard + custom rules) + persist.
     const allCandidates: MatchCandidate[] = [];
     for (const recall of recallList) {
       scanned++;
       const recallCategories = classifyRecallIngredients(recall);
       const normalizedFirmName = normalizeFirmName(recall.firm_name_raw ?? "");
 
-      const candidates = matchCandidates({
+      const standardCandidates = matchCandidates({
         recall,
         normalizedFirmName,
         recallCategories,
-        customers: eligibleCustomers,
+        customers: eligibleWithRules,
       });
 
-      if (candidates.length === 0) {
+      const customCandidates = matchCustomRuleCandidates({
+        recall,
+        customers: eligibleWithRules,
+      });
+
+      const allForRecall = [...standardCandidates, ...customCandidates];
+
+      if (allForRecall.length === 0) {
         deadLetter++;
       } else {
         matched++;
-        allCandidates.push(...candidates);
+        allCandidates.push(...allForRecall);
       }
 
-      // Advance watermark to this recall's first_seen_at after a successful
-      // match attempt, even if 0 candidates were emitted (recall was scanned
-      // and didn't match anyone — record progress so we don't re-scan).
+      // Advance watermark regardless of match count (record that the recall
+      // was scanned so we don't re-process it on the next cron run).
       watermarkOut = recall.first_seen_at;
     }
 
@@ -470,4 +478,49 @@ async function fetchEligibleCustomers(
     out.push({ tier: row.tier, profile, channels: enabled });
   }
   return out;
+}
+
+// Fetch alert_rules for Team customers' orgs and attach them to the contexts.
+// Non-Team customers are returned unchanged. Two queries: orgs lookup then rules.
+async function attachAlertRules(
+  supabase: ReturnType<typeof getSupabase>,
+  customers: CustomerMatchContext[],
+): Promise<CustomerMatchContext[]> {
+  const teamIds = customers
+    .filter((c) => c.tier === "team")
+    .map((c) => c.profile.customer_id);
+  if (!teamIds.length) return customers;
+
+  const { data: orgs, error: orgsErr } = await supabase
+    .from("organizations")
+    .select("id, owner_customer_id")
+    .in("owner_customer_id", teamIds);
+  if (orgsErr) throw new Error(`attachAlertRules orgs fetch failed: ${orgsErr.message}`);
+  if (!orgs?.length) return customers;
+
+  const orgIds = orgs.map((o: { id: string }) => o.id);
+  const ownerToOrg = new Map<string, string>(
+    orgs.map((o: { id: string; owner_customer_id: string }) => [o.owner_customer_id, o.id]),
+  );
+
+  const { data: rules, error: rulesErr } = await supabase
+    .from("alert_rules")
+    .select("id, organization_id, name, keywords, enabled, created_at")
+    .in("organization_id", orgIds)
+    .eq("enabled", true);
+  if (rulesErr) throw new Error(`attachAlertRules rules fetch failed: ${rulesErr.message}`);
+
+  const rulesMap = new Map<string, AlertRuleRow[]>();
+  for (const rule of (rules ?? []) as AlertRuleRow[]) {
+    const list = rulesMap.get(rule.organization_id) ?? [];
+    list.push(rule);
+    rulesMap.set(rule.organization_id, list);
+  }
+
+  return customers.map((c) => {
+    if (c.tier !== "team") return c;
+    const orgId = ownerToOrg.get(c.profile.customer_id);
+    if (!orgId) return c;
+    return { ...c, alertRules: rulesMap.get(orgId) ?? [] };
+  });
 }

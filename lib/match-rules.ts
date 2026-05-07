@@ -12,6 +12,7 @@
 
 import {
   INGREDIENT_CATEGORIES,
+  type AlertRuleRow,
   type CustomerChannelRow,
   type CustomerProfileRow,
   type IngredientCategory,
@@ -156,11 +157,12 @@ export type MatchCandidate = {
   tier: Tier;
 };
 
-// Per-customer input bundle for matchCandidates.
+// Per-customer input bundle for matchCandidates and matchCustomRuleCandidates.
 export type CustomerMatchContext = {
   tier: Tier;
   profile: CustomerProfileRow;
   channels: CustomerChannelRow[]; // already filtered to enabled=true upstream
+  alertRules?: AlertRuleRow[]; // Team only; populated by attachAlertRules() in matcher
 };
 
 // Match one recall against all customer contexts. Pure.

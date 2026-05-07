@@ -98,6 +98,16 @@ export type InvitationRow = {
   created_at: string;
 };
 
+// Custom alert rules — bead infrastructure-yo7k.
+export type AlertRuleRow = {
+  id: string;
+  organization_id: string;
+  name: string;
+  keywords: string[];
+  enabled: boolean;
+  created_at: string;
+};
+
 export type CustomerProfileRow = {
   id: string;
   customer_id: string;
@@ -242,7 +252,7 @@ export type FirmRow = {
 
 export type MatcherRunStatus = "running" | "ok" | "partial" | "error";
 
-export type MatchReason = "firm_alias" | "ingredient_category";
+export type MatchReason = "firm_alias" | "ingredient_category" | "custom_rule";
 
 export type DeliveryJobStatus =
   | "pending"

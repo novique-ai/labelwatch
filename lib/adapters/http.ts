@@ -36,7 +36,7 @@ export type WebhookPayload = {
     recall_initiation_date: string | null;
   };
   match: {
-    reason: "firm_alias" | "ingredient_category";
+    reason: "firm_alias" | "ingredient_category" | "custom_rule";
     value: string;
   };
   severity_class: string;

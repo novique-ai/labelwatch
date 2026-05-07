@@ -481,9 +481,16 @@ export default async function AccountPage({
         </Link>
         <div style={{ display: "flex", gap: 24, alignItems: "center" }}>
           {tierForHistory === "team" && (
-            <Link href="/account/team" style={{ fontSize: 11, letterSpacing: 1.4, textTransform: "uppercase" as const, color: "var(--color-text-muted)", textDecoration: "none" }}>
-              Team →
-            </Link>
+            <>
+              <Link href="/account/team" style={{ fontSize: 11, letterSpacing: 1.4, textTransform: "uppercase" as const, color: "var(--color-text-muted)", textDecoration: "none" }}>
+                Team →
+              </Link>
+              {!isMember && (
+                <Link href="/account/rules" style={{ fontSize: 11, letterSpacing: 1.4, textTransform: "uppercase" as const, color: "var(--color-text-muted)", textDecoration: "none" }}>
+                  Rules →
+                </Link>
+              )}
+            </>
           )}
           <span>Dashboard</span>
         </div>
