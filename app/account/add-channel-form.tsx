@@ -17,7 +17,7 @@ import {
   TIER_CHANNEL_CAP,
 } from "@/lib/tier-limits";
 
-type Type = "email" | "slack" | "http";
+type Type = "email" | "slack" | "teams" | "http";
 
 type Props = {
   tier: string;
@@ -114,14 +114,14 @@ export default function AddChannelForm({ tier, channelCount }: Props) {
   const allowedTypes = TIER_ALLOWED_CHANNEL_TYPES[safeTier];
   const cap = TIER_CHANNEL_CAP[safeTier];
   const atCap = cap !== null && channelCount >= cap;
-  // The /account form supports email/slack/http (teams launch-hidden by 3mbd).
-  const visibleTypes: Type[] = (["email", "slack", "http"] as const).filter(
+  const visibleTypes: Type[] = (["email", "slack", "teams", "http"] as const).filter(
     (t) => allowedTypes.includes(t),
   );
   const initialType: Type = visibleTypes[0] ?? "email";
 
   const [type, setType] = useState<Type>(initialType);
   const [email, setEmail] = useState("");
+  const [teamsUrl, setTeamsUrl] = useState("");
   const [httpUrl, setHttpUrl] = useState("");
   const [httpAuth, setHttpAuth] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -129,6 +129,7 @@ export default function AddChannelForm({ tier, channelCount }: Props) {
 
   function reset() {
     setEmail("");
+    setTeamsUrl("");
     setHttpUrl("");
     setHttpAuth("");
     setError(null);
@@ -143,6 +144,12 @@ export default function AddChannelForm({ tier, channelCount }: Props) {
         return;
       }
       body = { channel: { type: "email", config: { address: email } } };
+    } else if (type === "teams") {
+      if (!teamsUrl.startsWith("https://")) {
+        setError("URL must start with https://");
+        return;
+      }
+      body = { channel: { type: "teams", config: { webhook_url: teamsUrl } } };
     } else if (type === "http") {
       if (!httpUrl.startsWith("https://")) {
         setError("URL must start with https://");
@@ -235,7 +242,7 @@ export default function AddChannelForm({ tier, channelCount }: Props) {
 
       {safeTier === "starter" && (
         <p style={styles.hint}>
-          Starter unlocks email and Slack. Microsoft Teams + HTTP webhooks unlock on Pro.
+          Starter includes email and Slack. Microsoft Teams and HTTP webhooks unlock on Pro.
         </p>
       )}
 
@@ -271,6 +278,32 @@ export default function AddChannelForm({ tier, channelCount }: Props) {
           <a href="/api/slack/oauth/init?return_to=account" style={styles.primary}>
             Connect Slack →
           </a>
+        </>
+      )}
+
+      {type === "teams" && (
+        <>
+          <p style={styles.hint}>
+            In Teams, go to the channel → Connectors → Incoming Webhook → copy the URL.
+          </p>
+          <input
+            type="url"
+            value={teamsUrl}
+            onChange={(e) => setTeamsUrl(e.target.value)}
+            placeholder="https://outlook.office.com/webhook/..."
+            style={styles.input}
+          />
+          <button
+            type="button"
+            onClick={submit}
+            disabled={submitting}
+            style={{
+              ...styles.primary,
+              ...(submitting ? styles.primaryDisabled : {}),
+            }}
+          >
+            {submitting ? "Adding…" : "Add Teams channel"}
+          </button>
         </>
       )}
 

@@ -1,8 +1,8 @@
 // /api/account/channels — channel management for already-onboarded customers.
 // Bead infrastructure-3mbd.
 //
-// POST   add a channel (email | http; teams hidden for now; slack handled
-//        directly by the OAuth callback to avoid two cookie hops)
+// POST   add a channel (email | teams | http; slack handled directly by
+//        the OAuth callback to avoid two cookie hops)
 // DELETE remove a channel by id, scoped to the cookie-bound customer
 //
 // Auth: customer-session cookie only. The Stripe-portal magic-link remains
@@ -47,11 +47,8 @@ async function authCustomerId(): Promise<string | null> {
   return decodeCustomerCookie(cookieStore.get(CUSTOMER_COOKIE_NAME)?.value);
 }
 
-// Validates an *account-time* channel submission. Differs from /api/onboard's
-// validateChannel in two ways:
-//   1. type=slack is rejected here — the OAuth callback handles slack inserts
-//      directly, so the only way to get a slack row is via that flow.
-//   2. type=teams is rejected for now (matches launch posture: teams hidden).
+// Validates an *account-time* channel submission. type=slack is rejected here
+// — the OAuth callback handles slack inserts directly to avoid two cookie hops.
 function validateAccountChannel(value: unknown): {
   type: ChannelType;
   config: ChannelConfig;
@@ -66,6 +63,10 @@ function validateAccountChannel(value: unknown): {
     if (typeof c.address !== "string") return null;
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.address)) return null;
     return { type, config: { address: c.address } };
+  }
+  if (type === "teams") {
+    if (typeof c.webhook_url !== "string" || !c.webhook_url.startsWith("https://")) return null;
+    return { type, config: { webhook_url: c.webhook_url } };
   }
   if (type === "http") {
     if (typeof c.url !== "string" || !c.url.startsWith("https://")) return null;
