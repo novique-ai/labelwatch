@@ -59,6 +59,7 @@ export async function POST(request: Request) {
       line_items: [{ price: priceIdForTier(tier), quantity: 1 }],
       allow_promotion_codes: true,
       billing_address_collection: "auto",
+      payment_method_options: { link: { enabled: false } },
       success_url: `${origin}/onboard?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/?checkout=cancel`,
       subscription_data: {
