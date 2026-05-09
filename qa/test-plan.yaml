@@ -1,0 +1,1696 @@
+schema_version: 1
+product: labelwatch
+generated_at: "2026-05-09T00:00:00Z"
+generated_by: qa-planner@v0.1
+run_id: b7f3a9e2-4c1d-4f8a-b021-3e6d9c7a5f01
+
+sources:
+  - path: projects/labelwatch/app/page.tsx
+    kind: marketing-claims
+    sha: e1fc2f425ee31df407928d0b71d824756b9aace5
+  - path: projects/labelwatch/docs/mvp-roadmap.md
+    kind: roadmap
+    sha: e1fc2f425ee31df407928d0b71d824756b9aace5
+  - path: infra/runbooks/shell-corp-product-launch.md
+    kind: customer-journey-doctrine
+    sha: e1fc2f425ee31df407928d0b71d824756b9aace5
+
+# ---------------------------------------------------------------------------
+# VARIANT AXES
+# These are fan-out dimensions; test_cases use cross_product_with: to expand.
+# ---------------------------------------------------------------------------
+
+variants:
+  persona:
+    - id: P-SUPPLEMENT-OP
+      desc: "Supplement brand operator — non-technical, Shopify-tier seller, first-time subscriber"
+    - id: P-COMPLIANCE-MGR
+      desc: "Compliance manager — technical, Pro tier, managing multi-brand portfolio"
+    - id: P-AGENCY-ADMIN
+      desc: "Agency admin — Team tier, managing org with multiple seats"
+    - id: P-RETURNING
+      desc: "Returning customer — already onboarded, no active session cookie"
+    - id: P-FAILED-PAYMENT
+      desc: "Customer whose payment method was declined after trial"
+
+  payment:
+    - id: PAY-SUCCESS
+      card: "4242 4242 4242 4242"
+      outcome: success
+    - id: PAY-INSUFFICIENT
+      card: "4000 0000 0000 9995"
+      outcome: card_declined
+    - id: PAY-EXPIRED
+      card: "4000 0000 0000 0069"
+      outcome: expired_card
+    - id: PAY-3DS
+      card: "4000 0027 6000 3184"
+      outcome: requires_action
+    - id: PAY-DECLINE
+      card: "4000 0000 0000 0002"
+      outcome: generic_decline
+
+  tier:
+    - id: T-STARTER
+      stripe_price_env: STRIPE_PRICE_STARTER
+      price: "$39/mo"
+      expected_acceptance: true
+    - id: T-PRO
+      stripe_price_env: STRIPE_PRICE_PRO
+      price: "$99/mo"
+      expected_acceptance: true
+    - id: T-TEAM
+      stripe_price_env: STRIPE_PRICE_TEAM
+      price: "$299/mo"
+      expected_acceptance: true
+
+# ---------------------------------------------------------------------------
+# STAGES — maps to customer-journey doctrine §13 + §14
+# ---------------------------------------------------------------------------
+
+stages:
+  - id: marketing
+    desc: "Homepage renders, all claims visible, recall strip live (pre-checkout)"
+  - id: checkout
+    desc: "Stripe Checkout session creation → payment → redirect (§13.5, §13.6)"
+  - id: webhook
+    desc: "Stripe webhook delivery → subscription_events table (§13.6)"
+  - id: onboarding
+    desc: "POST /api/onboard: firm, channels, severity — cookie set (§13.2, §13.3, §13.4)"
+  - id: account
+    desc: "/account dashboard: subscription, scope, channels, recent matches (§13.1, §13.9)"
+  - id: delivery
+    desc: "matcher cron → delivery_jobs → channel delivery email/Slack/HTTP (§13.2)"
+  - id: channel_mgmt
+    desc: "Add/remove channels from /account (§14.1)"
+  - id: history
+    desc: "Delivery history visible in /account, window cap enforced by tier"
+  - id: digest
+    desc: "Daily digest cron for Starter (9am UTC Vercel cron, xzuz)"
+  - id: audit
+    desc: "Listing-copy audit flow: /audit, token-gated, quota by tier (§13.9)"
+  - id: team
+    desc: "Team-tier org: invite, accept, seat cap, member /account access"
+  - id: api_access
+    desc: "REST API + API keys: create, use, revoke, tier-gate (Team only)"
+  - id: billing
+    desc: "Customer Portal: cancel, upgrade, trial expiry, zero-charge cancel"
+
+# ---------------------------------------------------------------------------
+# TEST CASES
+# ---------------------------------------------------------------------------
+
+test_cases:
+
+  # ── MARKETING ──────────────────────────────────────────────────────────────
+
+  - id: TC-MARKETING-001
+    stage: marketing
+    title: "Homepage renders hero with all structural claims"
+    persona: "*"
+    payment: null
+    tier: null
+    cross_product_with: []
+    preconditions:
+      - "Browser not authenticated (no lw_customer cookie)"
+      - "NEXT_PUBLIC_LIVE_CHECKOUT=true on staging"
+    steps:
+      - "Navigate to https://staging.label.watch/"
+      - "Verify hero headline contains 'Amazon's 2026 testing rule'"
+      - "Verify hero sub-text contains '$39/mo'"
+      - "Verify hero sub-text contains 'Slack', 'Teams', 'webhook'"
+      - "Verify hero CTA is 'Start 14-day free trial' (not waiting-list form)"
+      - "Verify topbar reads 'Amazon compliance intelligence · supplements'"
+    expected:
+      http: ["GET / → 200"]
+      db: []
+      side_effects:
+        - "Page contains 'Amazon's 2026 testing rule'"
+        - "Page contains 'Start 14-day free trial'"
+        - "Page contains '$39/mo'"
+        - "No 'founding cohort', 'coming soon', 'waitlist' strings visible (§14.2)"
+    fail_modes:
+      - "Pre-launch hedging copy still visible after exje revert (§14.2 atomic flag discipline)"
+      - "Hero CTA shows SignupForm instead of CheckoutButton (NEXT_PUBLIC_LIVE_CHECKOUT not set)"
+    sources:
+      - "app/page.tsx#L430-L470 (hero section)"
+      - "app/page.tsx#L401 (liveCheckout flag)"
+      - "runbook §14.2"
+    status: active
+
+  - id: TC-MARKETING-002
+    stage: marketing
+    title: "Recall strip renders live FDA data with class badges and lead-time"
+    persona: "*"
+    payment: null
+    tier: null
+    cross_product_with: []
+    preconditions:
+      - "openFDA poller has run within last 24h (poller_runs row exists)"
+    steps:
+      - "Navigate to https://staging.label.watch/"
+      - "Inspect recall strip below hero"
+      - "Verify at least one recall row with ClassPill (I/II/III) and date"
+      - "Verify wire footer contains '15 minutes of FDA publication'"
+    expected:
+      http: ["GET / → 200"]
+      db: ["SELECT count(*) FROM recalls WHERE published_at > now() - interval '30 days' > 0"]
+      side_effects:
+        - "Recall strip shows firm name, product, classification, date"
+        - "Wire footer present with '15 minutes' claim"
+    fail_modes:
+      - "Wire section shows 'Wire is quiet' when recalls exist in DB (fetchRecentSupplementRecalls returning empty)"
+      - "'15 minutes' claim unverifiable without live FDA event (synthetic acceptable)"
+    sources:
+      - "app/page.tsx#L490-L580 (wireSection)"
+      - "app/page.tsx#L566 (wire footer '15 minutes' claim)"
+      - "lib/recalls.ts:fetchRecentSupplementRecalls"
+    status: active
+
+  - id: TC-MARKETING-003
+    stage: marketing
+    title: "Comparison section renders all claimed differentiators vs free FDA service"
+    persona: "*"
+    payment: null
+    tier: null
+    cross_product_with: []
+    preconditions: []
+    steps:
+      - "Navigate to https://staging.label.watch/"
+      - "Scroll to comparison section"
+      - "Verify LabelWatch column lists: Slack+Teams+webhook, firm normalization, peer watch, severity filter, 7d-12mo history, CSV/API export"
+    expected:
+      http: ["GET / → 200"]
+      db: []
+      side_effects:
+        - "All six LabelWatch differentiator bullets rendered"
+    fail_modes:
+      - "Claims rendered that are not yet enforced by shipped code (phantom coverage)"
+    sources:
+      - "app/page.tsx#L600-L650 (compSection)"
+    status: active
+
+  - id: TC-MARKETING-004
+    stage: marketing
+    title: "Pricing grid shows all three tiers after exje revert"
+    persona: "*"
+    payment: null
+    tier: null
+    cross_product_with: []
+    preconditions:
+      - "infrastructure-exje reverted: TIERS render filter removed, Pro/Team no longer hidden"
+      - "NEXT_PUBLIC_LIVE_CHECKOUT=true"
+    steps:
+      - "Navigate to https://staging.label.watch/#pricing"
+      - "Verify Starter ($39), Pro ($99), Team ($299) cards all visible"
+      - "Verify 'Rolling out this month' placeholder card is gone"
+      - "Verify each tier card shows 'Start 14-day free trial' CTA"
+    expected:
+      http: ["GET / → 200"]
+      db: []
+      side_effects:
+        - "Three pricing cards rendered"
+        - "No 'Rolling out this month' text"
+    fail_modes:
+      - "exje filter still in place — only Starter visible"
+      - "Pro/Team CTAs missing or disabled"
+    sources:
+      - "app/page.tsx#L614-L720 (pricing section)"
+      - "bead infrastructure-exje"
+    status: active
+
+  # ── CHECKOUT ───────────────────────────────────────────────────────────────
+
+  - id: TC-CHECKOUT-001
+    stage: checkout
+    title: "Successful Stripe Checkout → redirects to /onboard with session_id"
+    persona: "*"
+    payment: PAY-SUCCESS
+    tier: "*"
+    cross_product_with: [tier]
+    preconditions:
+      - "NEXT_PUBLIC_LIVE_CHECKOUT=true on staging"
+      - "STRIPE_PRICE_<TIER> env set on staging"
+    steps:
+      - "POST /api/checkout with tier=<tier>"
+      - "Follow returned Stripe Checkout URL"
+      - "Complete checkout with PAY-SUCCESS card"
+      - "Verify redirect lands on https://staging.label.watch/onboard?session_id=cs_test_..."
+    expected:
+      http:
+        - "POST /api/checkout → 200 with {url: 'https://checkout.stripe.com/...'}"
+        - "Stripe redirect → GET /onboard?session_id=cs_test_... → 200"
+      db:
+        - "subscription_events row with event_type='checkout.session.completed' within 10s of payment"
+      side_effects:
+        - "success_url does NOT contain localhost (§13.5)"
+        - "success_url domain matches NEXT_PUBLIC_SITE_URL"
+    fail_modes:
+      - "success_url resolves to localhost:3000 (§13.5 — origin unresolvable)"
+      - "Stripe session created with wrong price_id (tier→price mapping broken)"
+      - "Redirect goes to / instead of /onboard (success_url misconfigured)"
+    sources:
+      - "app/api/checkout/route.ts"
+      - "lib/stripe.ts#L6-L8 (tier→price mapping)"
+      - "runbook §13.5"
+    status: active
+
+  - id: TC-CHECKOUT-002
+    stage: checkout
+    title: "Declined payment — Stripe shows error, no customer row created"
+    persona: P-SUPPLEMENT-OP
+    payment: "*"
+    tier: T-STARTER
+    cross_product_with: [payment]
+    preconditions:
+      - "payment != PAY-SUCCESS (use PAY-INSUFFICIENT, PAY-EXPIRED, PAY-DECLINE, PAY-3DS)"
+    steps:
+      - "POST /api/checkout with tier=starter"
+      - "Follow Stripe Checkout URL"
+      - "Enter non-success card"
+      - "Verify Stripe shows payment error / 3DS prompt"
+      - "Verify no customer row created in Supabase customers table"
+    expected:
+      http:
+        - "Stripe Checkout page shows error or 3DS modal"
+      db:
+        - "No customers row for test email after failed payment"
+        - "No subscription_events row with checkout.session.completed"
+      side_effects:
+        - "For PAY-3DS: 3DS modal appears; completing it should recover to onboard"
+        - "For PAY-DECLINE/INSUFFICIENT/EXPIRED: card error shown, retry available"
+    fail_modes:
+      - "Customer row created despite declined payment"
+      - "3DS flow abandonment leaves partial state in DB"
+    sources:
+      - "app/api/checkout/route.ts"
+      - "app/api/stripe/webhook/route.ts"
+    status: active
+
+  - id: TC-CHECKOUT-003
+    stage: checkout
+    title: "success_url canonical hostname check — no localhost in production (§13.5)"
+    persona: P-SUPPLEMENT-OP
+    payment: null
+    tier: T-STARTER
+    cross_product_with: []
+    preconditions:
+      - "NEXT_PUBLIC_SITE_URL set on staging (https://staging.label.watch)"
+    steps:
+      - "POST /api/checkout with tier=starter (no Origin header, simulate server-side call)"
+      - "Inspect returned Stripe Checkout URL's success_url parameter"
+    expected:
+      http:
+        - "POST /api/checkout → 200 (not 500 'origin_unresolvable_in_production')"
+      db: []
+      side_effects:
+        - "success_url starts with 'https://staging.label.watch'"
+        - "success_url does NOT contain 'localhost' or '127.'"
+    fail_modes:
+      - "success_url = http://localhost:3000/onboard?... (§13.5 incident pattern)"
+      - "API throws 500 when called without Origin header AND NEXT_PUBLIC_SITE_URL not set"
+    sources:
+      - "app/api/checkout/route.ts (resolveOrigin function)"
+      - "runbook §13.5"
+    status: active
+
+  - id: TC-CHECKOUT-004
+    stage: checkout
+    title: "3DS auth required — completes flow, lands on /onboard"
+    persona: P-SUPPLEMENT-OP
+    payment: PAY-3DS
+    tier: T-STARTER
+    cross_product_with: []
+    preconditions:
+      - "NEXT_PUBLIC_LIVE_CHECKOUT=true on staging"
+    steps:
+      - "POST /api/checkout with tier=starter"
+      - "Enter PAY-3DS card"
+      - "Complete 3DS authentication modal (click 'Authenticate')"
+      - "Verify redirect lands on /onboard?session_id=cs_test_..."
+    expected:
+      http:
+        - "3DS modal renders and 'Authenticate' completes successfully"
+        - "GET /onboard → 200 with session_id param"
+      db:
+        - "subscription_events row with event_type='checkout.session.completed'"
+      side_effects: []
+    fail_modes:
+      - "3DS completion redirects to wrong URL or Stripe error page"
+      - "Webhook not fired after 3DS completion"
+    sources:
+      - "app/api/checkout/route.ts"
+      - "runbook §13.5"
+    status: active
+
+  # ── WEBHOOK ────────────────────────────────────────────────────────────────
+
+  - id: TC-WEBHOOK-001
+    stage: webhook
+    title: "checkout.session.completed webhook → subscription_events row (§13.6)"
+    persona: "*"
+    payment: PAY-SUCCESS
+    tier: "*"
+    cross_product_with: [tier]
+    preconditions:
+      - "Stripe test webhook endpoint configured at https://staging.label.watch/api/stripe/webhook"
+    steps:
+      - "Complete Stripe Checkout successfully"
+      - "Wait up to 10s for webhook delivery"
+      - "Query subscription_events for event_type='checkout.session.completed'"
+    expected:
+      http:
+        - "POST /api/stripe/webhook → 200 (not 307 redirect)"
+      db:
+        - "subscription_events row with event_type='checkout.session.completed' and correct stripe_customer_id"
+      side_effects: []
+    fail_modes:
+      - "Webhook URL returns 307 (apex vs www mismatch — §13.6 incident pattern)"
+      - "Signature verification fails silently — event logged as error but row not written"
+      - "Row written twice on duplicate delivery (non-idempotent handler)"
+    sources:
+      - "app/api/stripe/webhook/route.ts"
+      - "runbook §13.6"
+    status: active
+
+  - id: TC-WEBHOOK-002
+    stage: webhook
+    title: "Webhook URL returns 200 directly (no 3xx redirect)"
+    persona: "*"
+    payment: null
+    tier: null
+    cross_product_with: []
+    preconditions: []
+    steps:
+      - "curl -sS -o /dev/null -w '%{http_code} %{redirect_url}' -X POST https://staging.label.watch/api/stripe/webhook -H 'Content-Type: application/json' -d '{}'"
+    expected:
+      http:
+        - "Response code 400 or 401 (bad signature — expected), NOT 307 or 308"
+      db: []
+      side_effects:
+        - "redirect_url is empty (no redirect issued)"
+    fail_modes:
+      - "Response is 307 with redirect_url set — webhook URL is on redirected hostname (§13.6)"
+    sources:
+      - "runbook §13.6"
+    status: active
+
+  - id: TC-WEBHOOK-003
+    stage: webhook
+    title: "Duplicate webhook event handled idempotently"
+    persona: "*"
+    payment: PAY-SUCCESS
+    tier: T-STARTER
+    cross_product_with: []
+    preconditions:
+      - "One checkout.session.completed event already in subscription_events"
+    steps:
+      - "Re-deliver same Stripe webhook event (same event_id) via Stripe dashboard or CLI"
+      - "Verify subscription_events count does not increase"
+      - "Verify no duplicate customers row created"
+    expected:
+      http:
+        - "POST /api/stripe/webhook → 200"
+      db:
+        - "subscription_events count unchanged after replay"
+        - "customers count unchanged after replay"
+      side_effects: []
+    fail_modes:
+      - "Duplicate event creates second customer row"
+      - "Duplicate event creates second subscription_events row"
+    sources:
+      - "app/api/stripe/webhook/route.ts"
+    status: active
+
+  # ── ONBOARDING ─────────────────────────────────────────────────────────────
+
+  - id: TC-ONBOARD-001
+    stage: onboarding
+    title: "/onboard loads with session_id from Stripe, form initializes correctly"
+    persona: "*"
+    payment: PAY-SUCCESS
+    tier: "*"
+    cross_product_with: [tier]
+    preconditions:
+      - "Fresh checkout completed, session_id=cs_test_... in URL"
+    steps:
+      - "Navigate to /onboard?session_id=cs_test_..."
+      - "Verify form renders (firm name field, ingredient categories, severity, channel)"
+      - "Verify no error banner"
+    expected:
+      http:
+        - "GET /onboard?session_id=... → 200"
+      db: []
+      side_effects:
+        - "Form initialized at Step 1"
+        - "No 'session invalid' or 'already onboarded' banner for fresh session"
+    fail_modes:
+      - "Stripe session lookup fails → blank page or 500"
+      - "session_id missing from URL → form errors immediately"
+    sources:
+      - "app/onboard/page.tsx"
+      - "runbook §13.1"
+    status: active
+
+  - id: TC-ONBOARD-002
+    stage: onboarding
+    title: "Full onboard form submission creates customer, profile, channel, sets cookie"
+    persona: "*"
+    payment: PAY-SUCCESS
+    tier: "*"
+    cross_product_with: [tier]
+    preconditions:
+      - "session_id from successful checkout in URL"
+    steps:
+      - "Fill firm name (e.g. 'MegaHealth LLC'), 1 DBA"
+      - "Select ingredient categories: protein, vitamins"
+      - "Set severity min: Class I"
+      - "Add email channel: mark+pNN-tNN@how3ll.net"
+      - "Submit form"
+      - "Verify redirect to /onboard/complete or /account"
+    expected:
+      http:
+        - "POST /api/onboard → 200 {success: true}"
+      db:
+        - "customers row with stripe_customer_id, email, tier"
+        - "customer_profiles row with firm_name, ingredient_categories, severity_preferences"
+        - "customer_channels row with type='email'"
+        - "customers.onboarding_completed_at IS NOT NULL"
+      side_effects:
+        - "lw_customer cookie set (HMAC-signed)"
+        - "ONE onboarding welcome email sent to customer email (not N alerts — §13.2)"
+    fail_modes:
+      - "Email storm: N separate recall alerts sent instead of one welcome email (§13.2 incident)"
+      - "Cookie not set → /account redirects to home (§13.1)"
+      - "customer_channels row not created → no deliveries ever sent"
+    sources:
+      - "app/api/onboard/route.ts"
+      - "lib/customers.ts:finalizeOnboarding"
+      - "runbook §13.2"
+    status: active
+
+  - id: TC-ONBOARD-003
+    stage: onboarding
+    title: "Slack OAuth round-trip preserves form state (§13.4)"
+    persona: P-SUPPLEMENT-OP
+    payment: PAY-SUCCESS
+    tier: T-STARTER
+    cross_product_with: []
+    preconditions:
+      - "SLACK_CLIENT_ID, SLACK_CLIENT_SECRET set on staging"
+      - "Slack App redirect URI includes https://staging.label.watch/api/slack/oauth/callback"
+    steps:
+      - "At /onboard Step 2: select Slack channel type, click 'Connect Slack →'"
+      - "Complete OAuth in Slack popup"
+      - "Verify return to /onboard with 'Slack connected · #channel · TeamName' shown"
+      - "Verify form is at Step 3 (not reset to Step 1)"
+      - "Verify localStorage key lw-onboard-<sessionId> still populated"
+    expected:
+      http:
+        - "GET /api/slack/oauth/init → 302 to slack.com/oauth/v2/authorize"
+        - "GET /api/slack/oauth/callback?code=... → 302 to /onboard?slack_connected=1"
+        - "GET /onboard?slack_connected=1 → 200"
+      db: []
+      side_effects:
+        - "Form shows connected Slack workspace name and channel"
+        - "State from Steps 1+2 still present (not reset)"
+    fail_modes:
+      - "Return to /onboard at Step 1 with blank form (§13.4 state-loss incident)"
+      - "OAuth state cookie missing → callback 400 (CSRF protection fires)"
+    sources:
+      - "app/onboard/onboard-form.tsx"
+      - "lib/slack-oauth.ts"
+      - "runbook §13.4"
+    status: active
+
+  - id: TC-ONBOARD-004
+    stage: onboarding
+    title: "Already-onboarded session redirects to /account?already_onboarded=1 (§14.1)"
+    persona: P-RETURNING
+    payment: PAY-SUCCESS
+    tier: T-STARTER
+    cross_product_with: []
+    preconditions:
+      - "Customer already has onboarding_completed_at set"
+      - "Customer navigates back to /onboard (e.g. re-clicked Stripe success URL)"
+    steps:
+      - "POST /api/onboard with session_id of already-onboarded customer"
+    expected:
+      http:
+        - "POST /api/onboard → 200 {already_onboarded: true} OR redirect to /account?already_onboarded=1"
+      db:
+        - "No new customer_channels row created"
+        - "onboarding_completed_at unchanged"
+      side_effects:
+        - "Customer sees 'your existing setup is unchanged' message"
+    fail_modes:
+      - "Silent forward to /account showing fictitious success (§14.1 silent-no-op pattern)"
+      - "Second channels row inserted (duplicate channel)"
+    sources:
+      - "app/api/onboard/route.ts"
+      - "lib/customers.ts:finalizeOnboarding (L135 short-circuit)"
+      - "runbook §14.1"
+    status: active
+
+  - id: TC-ONBOARD-005
+    stage: onboarding
+    title: "Onboarding backfill emits exactly ONE welcome email, not N alert emails"
+    persona: P-SUPPLEMENT-OP
+    payment: PAY-SUCCESS
+    tier: T-STARTER
+    cross_product_with: []
+    preconditions:
+      - "recalls table has ≥5 rows matching customer's ingredient_categories"
+      - "Test email address monitored for delivery count"
+    steps:
+      - "Complete onboarding"
+      - "Wait 15s"
+      - "Count emails received at test address"
+    expected:
+      http: []
+      db:
+        - "delivery_jobs rows with source='backfill' have status='skipped' or emitDeliveryJobs=false pattern"
+      side_effects:
+        - "Exactly 1 email received (onboarding welcome, containing backfill match count)"
+        - "0 individual recall alert emails received during onboarding window"
+    fail_modes:
+      - "N alert emails received (§13.2 storm incident reproduced)"
+      - "0 emails received (welcome email broken)"
+    sources:
+      - "lib/matcher.ts:runCustomerBackfill (emitDeliveryJobs: false)"
+      - "lib/onboarding-email.ts"
+      - "runbook §13.2"
+    status: active
+
+  # ── ACCOUNT DASHBOARD ──────────────────────────────────────────────────────
+
+  - id: TC-ACCOUNT-001
+    stage: account
+    title: "/account renders all required sections per §13.1"
+    persona: "*"
+    payment: PAY-SUCCESS
+    tier: "*"
+    cross_product_with: [tier, persona]
+    preconditions:
+      - "Customer onboarded, lw_customer cookie valid"
+    steps:
+      - "Navigate to https://staging.label.watch/account"
+      - "Verify subscription banner (tier name, status, trial_end)"
+      - "Verify watched scope section (firm, DBAs, ingredient categories, severity)"
+      - "Verify delivery channels section (at least one channel row)"
+      - "Verify 'Manage subscription' button present"
+      - "Verify 'Recent matches' section (may be empty for new account)"
+      - "Verify 'Run listing-copy audit →' CTA with token"
+    expected:
+      http:
+        - "GET /account → 200 (server-rendered)"
+      db:
+        - "customers row queried by cookie customer_id"
+      side_effects:
+        - "All 6 required sections from §13.1 visible"
+        - "Audit token minted fresh on render (§13.9)"
+    fail_modes:
+      - "Any required section missing"
+      - "Page redirects to home (cookie not read or invalid)"
+      - "Audit token missing or stale"
+    sources:
+      - "app/account/page.tsx"
+      - "runbook §13.1"
+      - "runbook §13.9"
+    status: active
+
+  - id: TC-ACCOUNT-002
+    stage: account
+    title: "/account without cookie redirects to home (not 500)"
+    persona: P-RETURNING
+    payment: null
+    tier: null
+    cross_product_with: []
+    preconditions:
+      - "No lw_customer cookie set in browser"
+    steps:
+      - "Navigate to https://staging.label.watch/account (no cookie)"
+    expected:
+      http:
+        - "GET /account → 302 to / OR 401 (not 200 with blank data, not 500)"
+      db: []
+      side_effects: []
+    fail_modes:
+      - "500 NullPointerException on undefined customer_id"
+      - "Blank dashboard rendered with no data (leaks empty shell)"
+    sources:
+      - "app/account/page.tsx"
+      - "lib/customer-session.ts:decodeCustomerCookie"
+    status: active
+
+  - id: TC-ACCOUNT-003
+    stage: account
+    title: "Audit token re-minted fresh on every /account render (§13.9)"
+    persona: P-SUPPLEMENT-OP
+    payment: PAY-SUCCESS
+    tier: T-STARTER
+    cross_product_with: []
+    preconditions:
+      - "Customer onboarded, cookie valid"
+    steps:
+      - "Load /account, capture auditUrl from 'Run audit' button href"
+      - "Reload /account"
+      - "Capture auditUrl again"
+      - "Verify the two tokens differ (different exp claim)"
+    expected:
+      http:
+        - "GET /account → 200 twice"
+      db: []
+      side_effects:
+        - "Each render yields a unique token (time-based HMAC)"
+    fail_modes:
+      - "Token cached at component level — same token on reload (stale link)"
+      - "Token missing from audit button href"
+    sources:
+      - "app/account/page.tsx (signAuditToken call)"
+      - "runbook §13.9"
+    status: active
+
+  # ── DELIVERY ───────────────────────────────────────────────────────────────
+
+  - id: TC-DELIVERY-001
+    stage: delivery
+    title: "Matcher cron creates delivery_job for matching recall"
+    persona: "*"
+    payment: PAY-SUCCESS
+    tier: "*"
+    cross_product_with: [tier]
+    preconditions:
+      - "Customer onboarded with firm 'MegaHealth', ingredient_categories=[protein]"
+      - "Synthetic recall inserted: firm='MegaHealth Inc', classification='Class I', product='Protein Powder'"
+    steps:
+      - "POST /api/cron/match?cron_secret=<secret>"
+      - "Wait 5s"
+      - "Query delivery_jobs for customer"
+    expected:
+      http:
+        - "POST /api/cron/match → 200"
+      db:
+        - "delivery_jobs row with customer_id, recall_id, status='pending'"
+      side_effects: []
+    fail_modes:
+      - "Matcher doesn't normalize 'MegaHealth Inc' to canonical 'MegaHealth' (firm normalization broken)"
+      - "delivery_jobs row not created (matcher didn't match due to ingredient_category mismatch)"
+    sources:
+      - "app/api/cron/match/route.ts"
+      - "lib/matcher.ts"
+    status: active
+
+  - id: TC-DELIVERY-002
+    stage: delivery
+    title: "Email delivery: pending job becomes sent, email received"
+    persona: P-SUPPLEMENT-OP
+    payment: PAY-SUCCESS
+    tier: T-STARTER
+    cross_product_with: []
+    preconditions:
+      - "delivery_jobs row with type='email', status='pending'"
+      - "customer_channels row with type='email', destination=test@address"
+    steps:
+      - "POST /api/cron/deliver?cron_secret=<secret>"
+      - "Wait 10s"
+      - "Check delivery_jobs row for status='sent'"
+      - "Confirm email received at test address"
+    expected:
+      http:
+        - "POST /api/cron/deliver → 200"
+      db:
+        - "delivery_jobs.status='sent', sent_at IS NOT NULL"
+      side_effects:
+        - "Email received with firm name, product name, classification, date"
+    fail_modes:
+      - "Resend API key missing → delivery fails silently (status stays 'pending')"
+      - "Email delivered to wrong address (customer_channel resolution error)"
+    sources:
+      - "app/api/cron/deliver/route.ts"
+      - "lib/delivery/email.ts"
+    status: active
+
+  - id: TC-DELIVERY-003
+    stage: delivery
+    title: "Slack delivery: pending job becomes sent, message appears in channel"
+    persona: P-SUPPLEMENT-OP
+    payment: PAY-SUCCESS
+    tier: T-STARTER
+    cross_product_with: []
+    preconditions:
+      - "customer_channels row with type='slack', destination=<test_webhook_url>"
+      - "delivery_jobs row with type='slack', status='pending'"
+    steps:
+      - "POST /api/cron/deliver?cron_secret=<secret>"
+      - "Verify delivery_jobs.status='sent'"
+      - "Confirm Slack message received in test channel"
+    expected:
+      http:
+        - "POST /api/cron/deliver → 200"
+      db:
+        - "delivery_jobs.status='sent'"
+      side_effects:
+        - "Slack message posted with recall details"
+    fail_modes:
+      - "webhook_url stale or invalid → 404 from Slack (job stays pending, retried)"
+      - "Slack rate-limit hit → 429, delivery_jobs not marked failed correctly"
+    sources:
+      - "app/api/cron/deliver/route.ts"
+      - "lib/delivery/slack.ts"
+    status: active
+
+  - id: TC-DELIVERY-004
+    stage: delivery
+    title: "Severity filter: recall below customer minimum_class not delivered"
+    persona: P-COMPLIANCE-MGR
+    payment: PAY-SUCCESS
+    tier: T-PRO
+    cross_product_with: []
+    preconditions:
+      - "Customer severity_preferences.min_class = 'Class I' (most severe only)"
+      - "Synthetic recall inserted with classification='Class III'"
+    steps:
+      - "POST /api/cron/match?cron_secret=<secret>"
+      - "Query delivery_jobs for this customer and recall"
+    expected:
+      http:
+        - "POST /api/cron/match → 200"
+      db:
+        - "No delivery_jobs row for Class III recall when customer min_class=Class I"
+      side_effects: []
+    fail_modes:
+      - "Class III recall delivered despite min_class=Class I (severity routing broken)"
+      - "Per-channel severity routing (dxkk) not consulted — only customer-level default used"
+    sources:
+      - "lib/matcher.ts (severity filtering)"
+      - "bead infrastructure-dxkk"
+    status: active
+
+  - id: TC-DELIVERY-005
+    stage: delivery
+    title: "Firm normalization: recall for DBA matches customer watching canonical firm"
+    persona: P-SUPPLEMENT-OP
+    payment: PAY-SUCCESS
+    tier: T-STARTER
+    cross_product_with: []
+    preconditions:
+      - "firms table: canonical='MegaHealth LLC', aliases=['MegaHealth Inc', 'MH Nutrition']"
+      - "customer_profiles.firm_id points to MegaHealth LLC"
+      - "Synthetic recall with firm='MH Nutrition'"
+    steps:
+      - "POST /api/cron/match?cron_secret=<secret>"
+      - "Query delivery_jobs"
+    expected:
+      http:
+        - "POST /api/cron/match → 200"
+      db:
+        - "delivery_jobs row exists for this customer (DBA matched canonical)"
+      side_effects: []
+    fail_modes:
+      - "DBA not resolved → customer misses recall for their own product"
+      - "Firm normalization only checks exact firm name, ignores aliases array"
+    sources:
+      - "lib/matcher.ts (firm normalization)"
+      - "lib/firms.ts"
+      - "app/page.tsx#L608 ('Firm-name normalization' claim)"
+    status: active
+
+  - id: TC-DELIVERY-006
+    stage: delivery
+    title: "Pro/Team realtime: recall matched → delivery_job created and sent without waiting for digest"
+    persona: P-COMPLIANCE-MGR
+    payment: PAY-SUCCESS
+    tier: T-PRO
+    cross_product_with: [tier]
+    preconditions:
+      - "Tier is Pro or Team (not Starter)"
+      - "Synthetic recall inserted, matching customer profile"
+    steps:
+      - "POST /api/cron/match?cron_secret=<secret>"
+      - "POST /api/cron/deliver?cron_secret=<secret>"
+      - "Verify delivery_jobs status='sent' immediately (not 'digest_pending')"
+    expected:
+      http: []
+      db:
+        - "delivery_jobs.status='sent' for Pro/Team customer"
+        - "delivery_jobs.status='digest_pending' NOT set for Pro/Team (only for Starter)"
+      side_effects: []
+    fail_modes:
+      - "Pro customer gets digest_pending status (cadence split xzuz not respected)"
+      - "Realtime delivery inadvertently gated on digest window"
+    sources:
+      - "lib/digest.ts"
+      - "bead infrastructure-xzuz"
+    status: active
+
+  - id: TC-DELIVERY-007
+    stage: delivery
+    title: "Channel cap enforced: Starter cannot add >1 channel"
+    persona: P-SUPPLEMENT-OP
+    payment: PAY-SUCCESS
+    tier: T-STARTER
+    cross_product_with: []
+    preconditions:
+      - "Starter customer already has 1 channel configured"
+    steps:
+      - "POST /api/account/channels with second channel (email2)"
+    expected:
+      http:
+        - "POST /api/account/channels → 422 or 403 with tier-gate error"
+      db:
+        - "customer_channels count remains 1"
+      side_effects: []
+    fail_modes:
+      - "Second channel inserted for Starter (gvqx channel cap not enforced)"
+      - "Error returned but channel inserted (DB constraint not checked)"
+    sources:
+      - "app/api/account/channels/route.ts"
+      - "bead infrastructure-gvqx"
+    status: active
+
+  # ── CHANNEL MANAGEMENT ─────────────────────────────────────────────────────
+
+  - id: TC-CHANMGMT-001
+    stage: channel_mgmt
+    title: "Add email channel from /account without re-onboarding"
+    persona: P-RETURNING
+    payment: PAY-SUCCESS
+    tier: T-PRO
+    cross_product_with: []
+    preconditions:
+      - "Customer onboarded, cookie valid, existing 1 channel"
+      - "Pro tier (channel cap = 3)"
+    steps:
+      - "Navigate to /account"
+      - "Use 'Add channel' form: type=email, enter new address"
+      - "Submit"
+      - "Verify new channel row appears in channel list"
+    expected:
+      http:
+        - "POST /api/account/channels → 200"
+      db:
+        - "New customer_channels row with type='email'"
+      side_effects:
+        - "Channel appears in /account channel list"
+    fail_modes:
+      - "POST /api/account/channels returns 404 (route missing)"
+      - "Channel inserted but not shown (stale server component cache)"
+    sources:
+      - "app/api/account/channels/route.ts"
+      - "app/account/add-channel-form.tsx"
+      - "runbook §14.1"
+    status: active
+
+  - id: TC-CHANMGMT-002
+    stage: channel_mgmt
+    title: "Add Slack channel via OAuth from /account (§14.1)"
+    persona: P-RETURNING
+    payment: PAY-SUCCESS
+    tier: T-PRO
+    cross_product_with: []
+    preconditions:
+      - "Customer onboarded with email channel"
+      - "Slack OAuth configured with staging redirect URI"
+    steps:
+      - "Click 'Connect Slack →' on /account add-channel form"
+      - "Complete Slack OAuth"
+      - "Verify return to /account?slack_added=1&slack_team=<name>"
+      - "Verify new slack channel row in channel list"
+    expected:
+      http:
+        - "GET /api/slack/oauth/init?return_to=account → 302 to slack.com"
+        - "GET /api/slack/oauth/callback → 302 to /account?slack_added=..."
+      db:
+        - "customer_channels row with type='slack' added"
+      side_effects:
+        - "Flash banner: 'Slack connected · #channel · TeamName'"
+    fail_modes:
+      - "OAuth callback uses onboard return path (return_to not respected)"
+      - "Customer ID binding mismatch: channel inserted under wrong customer"
+    sources:
+      - "app/api/slack/oauth/init/route.ts"
+      - "app/api/slack/oauth/callback/route.ts"
+      - "runbook §14.1"
+    status: active
+
+  - id: TC-CHANMGMT-003
+    stage: channel_mgmt
+    title: "Remove channel: delivery stops to removed channel"
+    persona: P-RETURNING
+    payment: PAY-SUCCESS
+    tier: T-PRO
+    cross_product_with: []
+    preconditions:
+      - "Customer has 2 channels; synthetic recall matched; delivery_jobs pending"
+    steps:
+      - "DELETE /api/account/channels/<channelId> for channel 2"
+      - "POST /api/cron/deliver?cron_secret=<secret>"
+      - "Verify delivery_jobs for channel 2 NOT processed"
+    expected:
+      http:
+        - "DELETE /api/account/channels/<id> → 200"
+      db:
+        - "customer_channels row deleted"
+        - "delivery_jobs for removed channel not sent (or cancelled)"
+      side_effects: []
+    fail_modes:
+      - "Delivery still attempted to removed channel (channel lookup not invalidated)"
+      - "DELETE returns 403 (customer_id scope check missing)"
+    sources:
+      - "app/api/account/channels/route.ts (DELETE handler)"
+      - "runbook §14.1"
+    status: active
+
+  # ── HISTORY ────────────────────────────────────────────────────────────────
+
+  - id: TC-HISTORY-001
+    stage: history
+    title: "Starter: /account shows max 7d delivery history"
+    persona: P-SUPPLEMENT-OP
+    payment: PAY-SUCCESS
+    tier: T-STARTER
+    cross_product_with: []
+    preconditions:
+      - "delivery_jobs rows exist at 5d, 8d, and 14d ago for this customer"
+    steps:
+      - "Navigate to /account"
+      - "Inspect 'Recent matches' section"
+      - "Verify 8d and 14d rows NOT shown"
+      - "Verify 5d row IS shown"
+    expected:
+      http:
+        - "GET /account → 200"
+      db:
+        - "History query filtered to now() - interval '7 days' for Starter"
+      side_effects: []
+    fail_modes:
+      - "All history shown regardless of tier (fovp cap not enforced)"
+      - "7d window off-by-one (inclusive vs exclusive)"
+    sources:
+      - "app/account/page.tsx"
+      - "bead infrastructure-fovp"
+    status: active
+
+  - id: TC-HISTORY-002
+    stage: history
+    title: "Pro: /account shows max 12-month history"
+    persona: P-COMPLIANCE-MGR
+    payment: PAY-SUCCESS
+    tier: T-PRO
+    cross_product_with: []
+    preconditions:
+      - "delivery_jobs rows exist at 30d, 300d, and 400d ago for this Pro customer"
+    steps:
+      - "Navigate to /account"
+      - "Verify 30d and 300d rows visible"
+      - "Verify 400d row NOT shown"
+    expected:
+      http:
+        - "GET /account → 200"
+      db:
+        - "History query filtered to now() - interval '12 months' for Pro"
+      side_effects: []
+    fail_modes:
+      - "Starter window (7d) applied to Pro customer (tier not checked)"
+      - "12-month vs 365-day boundary handled inconsistently across month lengths"
+    sources:
+      - "app/account/page.tsx"
+      - "bead infrastructure-fovp"
+    status: active
+
+  - id: TC-HISTORY-003
+    stage: history
+    title: "Team: /account shows unlimited history"
+    persona: P-AGENCY-ADMIN
+    payment: PAY-SUCCESS
+    tier: T-TEAM
+    cross_product_with: []
+    preconditions:
+      - "delivery_jobs rows at 400d and 700d ago"
+    steps:
+      - "Navigate to /account as Team customer"
+      - "Verify both old rows visible"
+    expected:
+      http:
+        - "GET /account → 200"
+      db:
+        - "No date filter applied for Team tier history query"
+      side_effects: []
+    fail_modes:
+      - "12-month cap applied to Team (Pro window incorrectly used)"
+    sources:
+      - "app/account/page.tsx"
+      - "bead infrastructure-fovp"
+    status: active
+
+  # ── DIGEST ─────────────────────────────────────────────────────────────────
+
+  - id: TC-DIGEST-001
+    stage: digest
+    title: "Starter customer receives daily digest via /api/cron/digest"
+    persona: P-SUPPLEMENT-OP
+    payment: PAY-SUCCESS
+    tier: T-STARTER
+    cross_product_with: []
+    preconditions:
+      - "Starter customer has delivery_jobs with status='digest_pending'"
+      - "Test email address monitored"
+    steps:
+      - "POST /api/cron/digest?cron_secret=<secret> (simulate 9am UTC Vercel cron)"
+      - "Verify digest email received at customer email"
+      - "Verify delivery_jobs.status='sent' for digested rows"
+    expected:
+      http:
+        - "POST /api/cron/digest → 200"
+      db:
+        - "delivery_jobs rows for Starter updated to status='sent'"
+      side_effects:
+        - "Digest email received containing all pending recall summaries"
+    fail_modes:
+      - "/api/cron/digest route missing or returns 404"
+      - "digest_pending jobs not picked up (query filter wrong)"
+      - "Pro/Team jobs accidentally digested (cadence split xzuz not respected)"
+    sources:
+      - "app/api/cron/digest/route.ts"
+      - "lib/digest.ts"
+      - "bead infrastructure-xzuz"
+    status: active
+
+  - id: TC-DIGEST-002
+    stage: digest
+    title: "Pro/Team customers NOT digested — realtime only"
+    persona: P-COMPLIANCE-MGR
+    payment: PAY-SUCCESS
+    tier: T-PRO
+    cross_product_with: [tier]
+    preconditions:
+      - "Pro customer has delivery_jobs (should have status='pending', not 'digest_pending')"
+    steps:
+      - "POST /api/cron/digest?cron_secret=<secret>"
+      - "Verify Pro/Team delivery_jobs NOT touched by digest cron"
+    expected:
+      http:
+        - "POST /api/cron/digest → 200"
+      db:
+        - "delivery_jobs for Pro/Team customer unchanged after digest run"
+      side_effects: []
+    fail_modes:
+      - "Digest cron processes all pending jobs regardless of tier"
+    sources:
+      - "app/api/cron/digest/route.ts"
+      - "lib/digest.ts"
+      - "bead infrastructure-xzuz"
+    status: active
+
+  # ── AUDIT ──────────────────────────────────────────────────────────────────
+
+  - id: TC-AUDIT-001
+    stage: audit
+    title: "Listing-copy audit: Starter quota 1/30d enforced"
+    persona: P-SUPPLEMENT-OP
+    payment: PAY-SUCCESS
+    tier: T-STARTER
+    cross_product_with: []
+    preconditions:
+      - "Starter customer has used 1 audit run this calendar month"
+    steps:
+      - "Navigate to /audit with valid token"
+      - "Attempt second audit run"
+    expected:
+      http:
+        - "POST /api/audit/run → 429 or 403 (quota exceeded)"
+      db:
+        - "No new audit_runs row created for second attempt"
+      side_effects: []
+    fail_modes:
+      - "Second audit run succeeds for Starter (quota not enforced)"
+      - "Quota checked but wrong period (uses creation_date instead of rolling 30d)"
+    sources:
+      - "app/api/audit/run/route.ts"
+      - "bead infrastructure-sl26"
+    status: active
+
+  - id: TC-AUDIT-002
+    stage: audit
+    title: "Pro audit quota: 10/30d allowed"
+    persona: P-COMPLIANCE-MGR
+    payment: PAY-SUCCESS
+    tier: T-PRO
+    cross_product_with: []
+    preconditions:
+      - "Pro customer has used 9 audits this month"
+    steps:
+      - "Run 10th audit → should succeed"
+      - "Run 11th audit → should be rejected"
+    expected:
+      http:
+        - "POST /api/audit/run (10th) → 200"
+        - "POST /api/audit/run (11th) → 429"
+      db:
+        - "10 audit_runs rows, not 11"
+      side_effects: []
+    fail_modes:
+      - "Starter limit (1) applied to Pro"
+      - "Quota not checked at all for Pro"
+    sources:
+      - "app/api/audit/run/route.ts"
+      - "bead infrastructure-sl26"
+    status: active
+
+  - id: TC-AUDIT-003
+    stage: audit
+    title: "Audit token invalid/expired → 401 on /audit"
+    persona: P-SUPPLEMENT-OP
+    payment: null
+    tier: null
+    cross_product_with: []
+    preconditions: []
+    steps:
+      - "Navigate to /audit?t=<tampered_or_expired_token>"
+      - "Verify 401 or redirect to /account"
+    expected:
+      http:
+        - "GET /audit?t=bad_token → 401 or 302 to /account"
+      db: []
+      side_effects: []
+    fail_modes:
+      - "Tampered token accepted (HMAC verification not enforced)"
+      - "Expired token accepted (exp claim not checked)"
+    sources:
+      - "app/audit/page.tsx"
+      - "lib/audit-token.ts"
+    status: active
+
+  # ── TEAM ───────────────────────────────────────────────────────────────────
+
+  - id: TC-TEAM-001
+    stage: team
+    title: "Team org owner invites member; member accepts and appears in roster"
+    persona: P-AGENCY-ADMIN
+    payment: PAY-SUCCESS
+    tier: T-TEAM
+    cross_product_with: []
+    preconditions:
+      - "Team customer (org owner) onboarded"
+      - "organizations row exists for this customer"
+    steps:
+      - "POST /api/account/invite with email=mark+member@how3ll.net"
+      - "Verify invitations row created"
+      - "GET /api/accept-invite?token=<invite_token>"
+      - "Navigate to /account/team as org owner"
+      - "Verify member appears in team roster"
+    expected:
+      http:
+        - "POST /api/account/invite → 200"
+        - "GET /api/accept-invite?token=... → 302 to /account"
+      db:
+        - "invitations row with invitee_email"
+        - "memberships row after accept"
+      side_effects:
+        - "Invite email sent to invitee"
+    fail_modes:
+      - "Invite token expired before accepted (short TTL)"
+      - "Invited member created new independent customer (not linked to org)"
+    sources:
+      - "app/api/account/invite/route.ts"
+      - "app/api/accept-invite/route.ts"
+      - "bead infrastructure-cin7"
+    status: active
+
+  - id: TC-TEAM-002
+    stage: team
+    title: "5-seat limit enforced: 6th invite rejected"
+    persona: P-AGENCY-ADMIN
+    payment: PAY-SUCCESS
+    tier: T-TEAM
+    cross_product_with: []
+    preconditions:
+      - "Organization already has 5 members (owner + 4)"
+    steps:
+      - "POST /api/account/invite with a 6th email"
+    expected:
+      http:
+        - "POST /api/account/invite → 422 (seat limit exceeded)"
+      db:
+        - "invitations count unchanged"
+      side_effects: []
+    fail_modes:
+      - "6th invite accepted (seat cap not enforced)"
+      - "Seat count query includes pending invitations in limit check"
+    sources:
+      - "app/api/account/invite/route.ts"
+      - "bead infrastructure-cin7"
+    status: active
+
+  - id: TC-TEAM-003
+    stage: team
+    title: "Non-Team tier cannot access /account/team (403)"
+    persona: P-SUPPLEMENT-OP
+    payment: PAY-SUCCESS
+    tier: T-STARTER
+    cross_product_with: [tier]
+    preconditions:
+      - "Starter or Pro customer, valid cookie"
+    steps:
+      - "Navigate to /account/team"
+    expected:
+      http:
+        - "GET /account/team → 403 or redirect for non-Team tiers"
+      db: []
+      side_effects: []
+    fail_modes:
+      - "Starter can access /account/team (tier-gate missing)"
+      - "Page renders but invite form silently fails (gate at API only, not page)"
+    sources:
+      - "app/account/team/page.tsx"
+      - "bead infrastructure-cin7"
+    status: active
+
+  # ── API ACCESS ─────────────────────────────────────────────────────────────
+
+  - id: TC-API-001
+    stage: api_access
+    title: "Team customer creates API key; key returned once and only once"
+    persona: P-AGENCY-ADMIN
+    payment: PAY-SUCCESS
+    tier: T-TEAM
+    cross_product_with: []
+    preconditions:
+      - "Team customer, valid cookie"
+    steps:
+      - "POST /api/account/apikeys"
+      - "Capture plaintext key from response"
+      - "GET /account/apikeys"
+      - "Verify key shown masked (not plaintext) in UI"
+    expected:
+      http:
+        - "POST /api/account/apikeys → 200 with {key: 'lw_...'} (plaintext once)"
+        - "GET /account/apikeys → 200 showing masked key"
+      db:
+        - "api_keys row with key_hash (SHA-256), not plaintext"
+        - "revoked_at IS NULL"
+      side_effects:
+        - "Plaintext key only returned in creation response"
+    fail_modes:
+      - "Plaintext key stored in DB (security breach)"
+      - "Key returned again on subsequent GET (not masked)"
+    sources:
+      - "app/api/account/apikeys/route.ts"
+      - "bead infrastructure-2mkx"
+    status: active
+
+  - id: TC-API-002
+    stage: api_access
+    title: "GET /api/v1/matches with valid Bearer key returns paginated JSON"
+    persona: P-AGENCY-ADMIN
+    payment: PAY-SUCCESS
+    tier: T-TEAM
+    cross_product_with: []
+    preconditions:
+      - "Valid API key created for Team customer"
+      - "delivery_jobs rows exist for this customer"
+    steps:
+      - "GET /api/v1/matches with Authorization: Bearer <key>"
+      - "Verify JSON response with matches array"
+      - "Verify pagination: ?from=&to= date filtering works"
+    expected:
+      http:
+        - "GET /api/v1/matches → 200 {matches: [...], total: N}"
+      db: []
+      side_effects: []
+    fail_modes:
+      - "Bearer key accepted but returns another customer's data (customer isolation broken)"
+      - "Pagination ignores from/to params"
+      - "Returns 500 on empty matches (not empty array)"
+    sources:
+      - "app/api/v1/matches/route.ts"
+      - "bead infrastructure-2mkx"
+    status: active
+
+  - id: TC-API-003
+    stage: api_access
+    title: "GET /api/account/export.csv returns valid RFC 4180 CSV"
+    persona: P-AGENCY-ADMIN
+    payment: PAY-SUCCESS
+    tier: T-TEAM
+    cross_product_with: []
+    preconditions:
+      - "Team customer with delivery_jobs rows"
+      - "Valid cookie OR valid Bearer key"
+    steps:
+      - "GET /api/account/export.csv (with cookie)"
+      - "GET /api/account/export.csv with Authorization: Bearer <key>"
+      - "Verify Content-Type: text/csv"
+      - "Verify CRLF line endings (RFC 4180)"
+      - "Verify header row + data rows"
+    expected:
+      http:
+        - "GET /api/account/export.csv → 200 text/csv"
+      db: []
+      side_effects:
+        - "CSV has header row and data rows for all delivery_jobs"
+        - "CRLF line endings"
+    fail_modes:
+      - "Non-Team tier can download CSV (tier-gate missing)"
+      - "LF-only line endings (RFC 4180 violation)"
+      - "Bearer auth not accepted (cookie-only path)"
+    sources:
+      - "app/api/account/export.csv/route.ts"
+      - "bead infrastructure-0sco"
+    status: active
+
+  - id: TC-API-004
+    stage: api_access
+    title: "Revoked API key returns 401"
+    persona: P-AGENCY-ADMIN
+    payment: PAY-SUCCESS
+    tier: T-TEAM
+    cross_product_with: []
+    preconditions:
+      - "API key exists and was valid"
+    steps:
+      - "DELETE /api/account/apikeys/<key_id> (revoke)"
+      - "GET /api/v1/matches with revoked key"
+    expected:
+      http:
+        - "DELETE /api/account/apikeys/<id> → 200"
+        - "GET /api/v1/matches with revoked key → 401"
+      db:
+        - "api_keys.revoked_at IS NOT NULL"
+      side_effects: []
+    fail_modes:
+      - "Revoked key still accepted (revoked_at not checked in auth middleware)"
+      - "Hard delete instead of soft revoke (audit trail lost)"
+    sources:
+      - "app/api/account/apikeys/route.ts"
+      - "bead infrastructure-2mkx"
+    status: active
+
+  - id: TC-API-005
+    stage: api_access
+    title: "Non-Team tier: /account/apikeys page returns 403"
+    persona: P-SUPPLEMENT-OP
+    payment: PAY-SUCCESS
+    tier: T-STARTER
+    cross_product_with: [tier]
+    preconditions:
+      - "Starter or Pro customer, valid cookie"
+    steps:
+      - "Navigate to /account/apikeys"
+    expected:
+      http:
+        - "GET /account/apikeys → 403 or redirect"
+      db: []
+      side_effects: []
+    fail_modes:
+      - "Page renders empty UI instead of tier-gating"
+    sources:
+      - "app/account/apikeys/page.tsx"
+    status: active
+
+  # ── BILLING ────────────────────────────────────────────────────────────────
+
+  - id: TC-BILLING-001
+    stage: billing
+    title: "Customer Portal: 'Manage subscription' opens valid Stripe portal session"
+    persona: "*"
+    payment: PAY-SUCCESS
+    tier: "*"
+    cross_product_with: [tier]
+    preconditions:
+      - "Customer onboarded, valid cookie"
+    steps:
+      - "Click 'Manage subscription' on /account"
+      - "Verify redirect to Stripe Customer Portal URL (billing.stripe.com)"
+      - "Verify portal shows correct plan"
+    expected:
+      http:
+        - "GET /api/stripe/portal → 302 to billing.stripe.com/session/..."
+      db: []
+      side_effects:
+        - "Stripe portal shows tier name, price, trial_end"
+    fail_modes:
+      - "Portal URL expired by the time user clicks (server-side session TTL)"
+      - "Wrong customer_id used to create portal session (shows another customer's billing)"
+    sources:
+      - "app/api/stripe/portal/route.ts"
+    status: active
+
+  - id: TC-BILLING-002
+    stage: billing
+    title: "Cancel subscription during 14-day trial → zero charge"
+    persona: P-SUPPLEMENT-OP
+    payment: PAY-SUCCESS
+    tier: T-STARTER
+    cross_product_with: []
+    preconditions:
+      - "Customer subscribed with PAY-SUCCESS, in trial period"
+    steps:
+      - "Open Customer Portal via 'Manage subscription'"
+      - "Cancel subscription"
+      - "Verify Stripe subscription status = 'canceled'"
+      - "Verify $0 charge on Stripe dashboard"
+    expected:
+      http:
+        - "Stripe Customer Portal cancel flow completes"
+      db:
+        - "subscription_events row with event_type='customer.subscription.deleted'"
+      side_effects:
+        - "Stripe dashboard shows $0.00 billed"
+    fail_modes:
+      - "Trial not cancelled before charge fires (trial_end webhook not handled)"
+      - "subscription_events not updated after cancellation"
+    sources:
+      - "app/api/stripe/webhook/route.ts"
+      - "runbook §13.8 (step 7)"
+    status: active
+
+  # ── CUSTOM ALERT RULES ─────────────────────────────────────────────────────
+
+  - id: TC-RULES-001
+    stage: team
+    title: "Team org owner creates custom alert rule; matcher evaluates it"
+    persona: P-AGENCY-ADMIN
+    payment: PAY-SUCCESS
+    tier: T-TEAM
+    cross_product_with: []
+    preconditions:
+      - "Team customer, valid cookie"
+    steps:
+      - "POST /api/account/rules with keyword_pattern='heavy metals'"
+      - "Verify alert_rules row created"
+      - "Insert synthetic recall with 'heavy metals' in reason field"
+      - "POST /api/cron/match?cron_secret=<secret>"
+      - "Verify delivery_jobs row with match_reason='custom_rule'"
+    expected:
+      http:
+        - "POST /api/account/rules → 200"
+        - "POST /api/cron/match → 200"
+      db:
+        - "alert_rules row with keyword_pattern"
+        - "delivery_jobs row with match_reason='custom_rule'"
+      side_effects: []
+    fail_modes:
+      - "Custom rule created but not evaluated by matcher"
+      - "Non-Team tier can create rules (tier-gate missing)"
+      - "20-rule limit not enforced (yo7k max_rules)"
+    sources:
+      - "app/api/account/rules/route.ts"
+      - "lib/custom-rules.ts:evaluateCustomRules"
+      - "bead infrastructure-yo7k"
+    status: active
+
+# ---------------------------------------------------------------------------
+# FUZZ FAMILIES (≥5 required — constitution §NEGATIVE+FUZZ ARE NOT OPTIONAL)
+# ---------------------------------------------------------------------------
+
+fuzz_families:
+
+  - id: FUZZ-LONG-INPUT
+    desc: "Oversized inputs in onboarding form fields"
+    inject:
+      firm_name: "A" * 500
+      firm_aliases: ["alias" + str(i) for i in range(100)]
+      ingredient_categories: ["protein"] * 200
+      channel_destination: "http://webhook.example.com/" + "x" * 2000
+    expect: "API returns 400 or 422 with validation error; no DB insert; no 500"
+    sources:
+      - "app/api/onboard/route.ts (input validation)"
+      - "runbook §13 general input hygiene"
+
+  - id: FUZZ-UNICODE-RTL
+    desc: "Unicode, RTL, emoji, and control characters in firm name and channel fields"
+    inject:
+      firm_name: "شركة المكملات الغذائية"
+      firm_aliases: ["מגה-הלת", "🏭 Mega Health™"]
+      channel_destination: "https://hooks.slack.com/services/​/​INVALID"
+    expect: "Inputs stored or rejected cleanly; no garbled DB row; no XSS reflected; delivery attempted to sanitized URL only"
+    sources:
+      - "app/api/onboard/route.ts"
+      - "lib/delivery/slack.ts"
+
+  - id: FUZZ-RACE-ONBOARD
+    desc: "Two concurrent POST /api/onboard requests for the same session_id"
+    inject:
+      concurrent_requests: 2
+      same_session_id: true
+    expect: "Exactly one customers row created; no duplicate customer_channels; second request returns 200 {already_onboarded: true} or 409; no 500"
+    sources:
+      - "app/api/onboard/route.ts"
+      - "lib/customers.ts:finalizeOnboarding"
+
+  - id: FUZZ-OAUTH-STATE
+    desc: "Slack OAuth callback with forged or replayed state cookie"
+    inject:
+      state_variations:
+        - forged_hmac: "state_cookie with invalid HMAC signature"
+        - replayed: "valid state cookie used a second time after successful OAuth"
+        - missing: "no state cookie at all"
+        - mismatched_session: "state cookie bound to different session_id"
+    expect: "All four variations return 400; no channel row inserted; no 500"
+    sources:
+      - "app/api/slack/oauth/callback/route.ts"
+      - "lib/slack-oauth.ts (HMAC state verification)"
+      - "runbook §13.3"
+
+  - id: FUZZ-CHANNEL-MID-DELIVERY
+    desc: "Channel deleted while deliver cron is mid-run processing its jobs"
+    inject:
+      setup: "10 pending delivery_jobs for a channel"
+      race: "DELETE /api/account/channels/<id> while /api/cron/deliver is running"
+    expect: "Delivery cron handles missing channel gracefully; delivery_jobs marked failed (not stuck pending); no 500; no data corruption"
+    sources:
+      - "app/api/cron/deliver/route.ts"
+      - "app/api/account/channels/route.ts (DELETE)"
+
+  - id: FUZZ-WEBHOOK-REPLAY
+    desc: "Same Stripe webhook event delivered twice (Stripe retry behavior)"
+    inject:
+      event_id: "evt_test_duplicate"
+      delivered_count: 2
+    expect: "subscription_events count = 1 after both deliveries; idempotency key prevents duplicate row; second handler returns 200 (not error)"
+    sources:
+      - "app/api/stripe/webhook/route.ts"
+
+# ---------------------------------------------------------------------------
+# NEGATIVE CASES (≥5 required — constitution §NEGATIVE+FUZZ ARE NOT OPTIONAL)
+# ---------------------------------------------------------------------------
+
+negative_cases:
+
+  - id: NEG-COOKIE-TAMPER
+    stage: account
+    desc: "Modified lw_customer cookie (bit-flipped customer_id) rejected"
+    expected: "GET /account with tampered cookie → 302 to / or 401; no customer data served"
+    sources:
+      - "lib/customer-session.ts:decodeCustomerCookie"
+      - "runbook §13.1 auth model"
+
+  - id: NEG-EXPIRED-STRIPE-SESSION
+    stage: onboarding
+    desc: "POST /api/onboard with a Stripe session_id that is >24h old (expired)"
+    expected: "POST /api/onboard → 400 or 422 with 'session_expired' error; no customer row created"
+    sources:
+      - "app/api/onboard/route.ts"
+
+  - id: NEG-INVALID-TIER-CHECKOUT
+    stage: checkout
+    desc: "POST /api/checkout with tier='enterprise' (not in enum)"
+    expected: "POST /api/checkout → 400 with validation error; no Stripe session created"
+    sources:
+      - "app/api/checkout/route.ts"
+      - "lib/stripe.ts:isValidTier"
+
+  - id: NEG-CHANNEL-TYPE-INVALID
+    stage: channel_mgmt
+    desc: "POST /api/account/channels with type='fax' (not in allowed types)"
+    expected: "POST /api/account/channels → 422; no customer_channels row created"
+    sources:
+      - "app/api/account/channels/route.ts"
+
+  - id: NEG-SEVERITY-BYPASS
+    stage: delivery
+    desc: "Attempt to manually insert delivery_job with severity below customer's min_class via API; matcher should not emit such jobs"
+    expected: "Matcher never emits delivery_job for recall below customer minimum_class; manual insert blocked by DB constraint or RLS"
+    sources:
+      - "lib/matcher.ts (severity gate)"
+      - "bead infrastructure-dxkk"
+
+  - id: NEG-CRON-NO-SECRET
+    stage: delivery
+    desc: "GET /api/cron/match without cron_secret query param"
+    expected: "GET /api/cron/match → 401; no match run executed"
+    sources:
+      - "app/api/cron/match/route.ts"
+      - "app/api/cron/deliver/route.ts"
+      - "app/api/cron/poll/route.ts"
+      - "app/api/cron/digest/route.ts"
+
+  - id: NEG-APIKEY-CROSS-CUSTOMER
+    stage: api_access
+    desc: "API key from customer A used to query /api/v1/matches for customer B (pass customer B's id as ?customer= param)"
+    expected: "GET /api/v1/matches → returns only customer A's data; customer B's matches never exposed regardless of query params"
+    sources:
+      - "app/api/v1/matches/route.ts"
+      - "bead infrastructure-2mkx"
+
+  - id: NEG-BRAND-CAP-EXCEEDED
+    stage: onboarding
+    desc: "Starter customer submits onboarding with 3 firm_aliases (cap is 1 for Starter)"
+    expected: "POST /api/onboard → 422 brand_cap_exceeded; or aliases truncated to 1 with warning; no silent extra-aliases insert"
+    sources:
+      - "app/api/onboard/route.ts"
+      - "bead infrastructure-0a0x"
+
+  - id: NEG-INVITE-BAD-TOKEN
+    stage: team
+    desc: "GET /api/accept-invite?token=<tampered_or_expired_token>"
+    expected: "GET /api/accept-invite → 400 or 401; no memberships row created"
+    sources:
+      - "app/api/accept-invite/route.ts"
+      - "bead infrastructure-cin7"
+
+# ---------------------------------------------------------------------------
+# REPORTING SPEC
+# ---------------------------------------------------------------------------
+
+reporting:
+  per_case_outcome: [pass, fail, anomaly, skip]
+  required_fields:
+    - case_id
+    - started_at
+    - finished_at
+    - outcome
+    - evidence_urls
+    - anomaly_notes
+  aggregator_required_pass_rate: 1.0
+  staging_base_url: "https://staging.label.watch"
+  test_email_pattern: "mark+p{persona_num}-t{run_num}@how3ll.net"
+  stripe_mode: test
+
+# ---------------------------------------------------------------------------
+# COVERAGE GAPS (human governor must triage before first qa-run)
+# ---------------------------------------------------------------------------
+
+coverage_gaps:
+
+  - source: "TIERS[1].features[0] — 'All verticals, all channels' (Pro)"
+    reason: "Only supplements vertical exists in production (openFDA food enforcement only). No USDA FSIS / CPSC / NHTSA verticals shipped. The claim is aspirational."
+    recommended_action: "Remove claim OR mark test blocked_on until RecallWatch family epic (infrastructure-he84) ships"
+
+  - source: "TIERS[2].features[3] — 'Priority support' (Team)"
+    reason: "No support ticketing system, SLA tracking, or dedicated support routing exists. Claim is marketing-only with no technical backing."
+    recommended_action: "Remove claim from Team tier features until support infrastructure defined; no test case emittable"
+
+  - source: "app/page.tsx#L566 — 'within 15 minutes of FDA publication'"
+    reason: "Cannot be tested without a real live FDA publication event. Synthetic recall injection tests the delivery pipeline but not the publication-to-poll latency. UptimeRobot pings poller every 15min but this only bounds polling cadence, not end-to-end latency."
+    recommended_action: "Add monitoring alert for poller_runs.last_run lag > 20min; accept synthetic test as proxy for delivery pipeline; document this gap in SLA"
+
+  - source: "TIERS[1].features[0] — 'All channels' (Pro) — Teams channel"
+    reason: "Microsoft Teams OAuth flow not yet implemented (runbook §13.3 deferred Teams to MVP1+). customer_channels type='teams' may not be accepted."
+    recommended_action: "Mark TC-CHANMGMT-TEAMS as blocked_on: teams_oauth_not_shipped; test Slack/email/HTTP only for now"
+
+  - source: "Stripe Customer Portal — tier downgrade flow"
+    reason: "Tier downgrade (Team → Pro → Starter) not tested. subscription_events handler for customer.subscription.updated with plan change not verified. Customer's tier field in customers table may not update on downgrade."
+    recommended_action: "Add TC-BILLING-003 in next refresh once subscription.updated handler is confirmed"
