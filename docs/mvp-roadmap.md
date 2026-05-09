@@ -1,6 +1,6 @@
 ---
 owner: Clayton
-last_reviewed: 2026-05-07
+last_reviewed: 2026-05-09
 source_of_truth_for: LabelWatch product MVP scope — what's in MVP1 vs MVP2
 supersedes: null
 ---
@@ -38,7 +38,7 @@ supersedes: null
 | Listing Copy Audit (lcaudit) | `infrastructure-sl26` | 🟡 Code landed 2026-04-25 (awaiting relaunch + Supabase migration apply to exercise) |
 | Daily "FDA Today for Supplements" digest | `infrastructure-uihh` | ⬜ Reuses zxv3 poller; ships in §5.5 of GTM plan |
 | Re-enable checkout + strip pilot language | `infrastructure-9ewv` | ✅ Live 2026-05-02 (Starter-only — see exje below) |
-| **v0.0.1: hide Pro/Team tiers + reject server-side** | `infrastructure-exje` | 🔴 NEXT: revert now that azn9 is GREEN — remove TIERS filter + /api/checkout rejection |
+| **v0.0.1: hide Pro/Team tiers + reject server-side** | `infrastructure-exje` | ✅ Reverted 2026-05-09 — TIERS filter removed, /api/checkout accepts all tiers, 3-col pricing grid restored |
 | **v0.0.2: Pro/Team tier feature delivery (EPIC)** | `infrastructure-azn9` | ✅ ALL 9/9 sub-beads CLOSED 2026-05-07, staging fully smoked |
 | ↳ Tier brand cap (firm_aliases count) | `infrastructure-0a0x` | ✅ Shipped 2026-05-06 |
 | ↳ Tier channel cap + type allowlist | `infrastructure-gvqx` | ✅ Shipped 2026-05-06 |

@@ -276,9 +276,7 @@ const s = {
 
   pricingGrid: {
     display: "grid",
-    // v0.0.1: 2-col while Pro/Team are hidden (bead infrastructure-exje).
-    // Restore "repeat(3, 1fr)" when EPIC infrastructure-azn9 is GREEN.
-    gridTemplateColumns: "repeat(2, 1fr)",
+    gridTemplateColumns: "repeat(3, 1fr)",
     gap: 14,
     padding: "0 40px 40px",
   } as CSSProperties,
@@ -611,18 +609,10 @@ export default async function Home() {
       </section>
 
       {/* Pricing */}
-      {/*
-        v0.0.1 launch posture (bead infrastructure-exje): only Starter is sold.
-        TIERS array is filtered to starter-only; Pro/Team marketing claims are
-        not yet honored by shipped code (see EPIC infrastructure-azn9). The
-        below-grid line points future-customers to a list. When azn9 is GREEN,
-        revert: drop the .filter(), drop the rolling-out line, restore section
-        label "Three tiers".
-      */}
       <section id="pricing" style={s.pricingSection}>
-        <SectionRule label="Terms · Starter" />
+        <SectionRule label="Terms · Three tiers" />
         <div style={s.pricingGrid} className="pricing-grid">
-          {TIERS.filter((t) => t.tierId === "starter").map((t) => (
+          {TIERS.map((t) => (
             <div key={t.tierId} style={s.pricingCard(t.accent)}>
               {t.accent && (
                 <div
@@ -714,85 +704,6 @@ export default async function Home() {
             </div>
           ))}
 
-          {/*
-            v0.0.1: Pro/Team marker — sibling card to Starter while their
-            features are still being built. Bead infrastructure-exje. Remove
-            this entire <div> when EPIC infrastructure-azn9 is GREEN; the
-            real Pro + Team cards will return via the unfiltered TIERS map.
-          */}
-          {liveCheckout && (
-            <div style={s.pricingCard(false)}>
-              <div
-                style={{
-                  fontFamily: "var(--font-jetbrains), monospace",
-                  fontSize: 10,
-                  letterSpacing: 2,
-                  textTransform: "uppercase",
-                  color: "#807a6c",
-                }}
-              >
-                Pro &amp; Team
-              </div>
-              <div
-                style={{
-                  ...s.pricingPrice,
-                  fontSize: 32,
-                  color: "#9a9485",
-                  marginTop: 16,
-                }}
-              >
-                Rolling out
-                <span
-                  style={{
-                    fontFamily: "var(--font-jetbrains), monospace",
-                    fontSize: 13,
-                    fontWeight: 400,
-                    letterSpacing: 0,
-                    color: "#807a6c",
-                    marginLeft: 6,
-                  }}
-                >
-                  this month
-                </span>
-              </div>
-              <div
-                style={{
-                  marginTop: 12,
-                  fontFamily: "system-ui, sans-serif",
-                  fontSize: 13,
-                  color: "#9a9485",
-                  lineHeight: 1.55,
-                }}
-              >
-                The bigger tiers — multi-channel routing, REST API, multi-user
-                seats, custom alert rules — are shipping over the next few
-                weeks.
-              </div>
-              <div style={s.pricingList}>
-                <div>· Pro ($99/mo) — all channels, 12-mo history, severity routing</div>
-                <div>· Team ($299/mo) — Pro + REST API + 5 seats + CSV export</div>
-              </div>
-              <div style={{ marginTop: "auto", paddingTop: 24 }}>
-                <p
-                  style={{
-                    fontFamily: "var(--font-jetbrains), monospace",
-                    fontSize: 9.5,
-                    letterSpacing: 1.2,
-                    textTransform: "uppercase",
-                    color: "#807a6c",
-                    margin: "0 0 10px",
-                  }}
-                >
-                  Get on the early-access list
-                </p>
-                <SignupForm
-                  tier="pro"
-                  campaign="pro-team-waitlist"
-                  successMessage="Got it — we'll email you the moment Pro and Team are live."
-                />
-              </div>
-            </div>
-          )}
         </div>
         <div
           className="pricing-footer"
