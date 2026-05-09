@@ -1197,13 +1197,13 @@ test_cases:
     steps:
       - "POST /api/account/invite with email=mark+member@how3ll.net"
       - "Verify invitations row created"
-      - "GET /api/accept-invite?token=<invite_token>"
+      - "GET /api/accept-invite?t=<invite_token>"
       - "Navigate to /account/team as org owner"
       - "Verify member appears in team roster"
     expected:
       http:
         - "POST /api/account/invite → 200"
-        - "GET /api/accept-invite?token=... → 302 to /account"
+        - "GET /api/accept-invite?t=... → 302 to /account"
       db:
         - "invitations row with invitee_email"
         - "memberships row after accept"
@@ -1645,8 +1645,8 @@ negative_cases:
 
   - id: NEG-INVITE-BAD-TOKEN
     stage: team
-    desc: "GET /api/accept-invite?token=<tampered_or_expired_token>"
-    expected: "GET /api/accept-invite → 400 or 401; no memberships row created"
+    desc: "GET /api/accept-invite?t=<tampered_or_expired_token>"
+    expected: "GET /api/accept-invite → 400 or 401 or 307 /?invite=invalid; no memberships row created"
     sources:
       - "app/api/accept-invite/route.ts"
       - "bead infrastructure-cin7"
