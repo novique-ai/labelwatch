@@ -549,9 +549,10 @@ export default async function Home() {
             </>
           )}
           <div style={s.wireFooter} className="wire-footer">
-            Source: openFDA food/enforcement · cached hourly · LabelWatch
-            customers get these within 15 minutes of FDA publication, routed to
-            Slack/Teams/webhook.
+            Source: openFDA food/enforcement · cached hourly · Pro and Team
+            customers receive alerts within minutes of an openFDA enforcement
+            update via Slack, Teams, or webhook. Starter customers receive a
+            daily digest.
           </div>
         </div>
       </section>
