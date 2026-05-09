@@ -715,6 +715,40 @@ export default async function AccountPage({
           )}
         </section>
 
+        {tierForHistory === "team" && (
+          <section style={s.section}>
+            <p style={s.sectionTitle}>Priority support</p>
+            <div style={s.card}>
+              <div style={s.kv}>
+                <div style={s.kvKey}>SMS</div>
+                <div>
+                  <a
+                    href="sms:+18334560671"
+                    style={{ color: "var(--color-signal-red)", textDecoration: "none", fontWeight: 500 }}
+                  >
+                    1 (833) 456-0671
+                  </a>
+                  <span style={{ color: "var(--color-text-muted)", fontSize: 12, marginLeft: 10 }}>
+                    Text for urgent issues · response within 2 hours during business hours
+                  </span>
+                </div>
+                <div style={s.kvKey}>Email</div>
+                <div>
+                  <a
+                    href="mailto:support@novique.ai?subject=LabelWatch%20Priority%20Support"
+                    style={{ color: "var(--color-signal-red)", textDecoration: "none", fontWeight: 500 }}
+                  >
+                    support@novique.ai
+                  </a>
+                  <span style={{ color: "var(--color-text-muted)", fontSize: 12, marginLeft: 10 }}>
+                    For non-urgent requests · response within 48 hours
+                  </span>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
         <p style={{ ...s.empty, textAlign: "center" as const, marginTop: 60, fontStyle: "normal" as const }}>
           Need to change firm scope or severity? Reply to any LabelWatch email and we&apos;ll update it.
         </p>
