@@ -33,9 +33,9 @@ const TIERS = [
     name: "Pro",
     price: "$99",
     cadence: "/mo",
-    blurb: "Everything in Starter, plus all channels, enrichment, 12-mo history.",
+    blurb: "Everything in Starter, plus all channels, Amazon TIC compliance checks, 12-mo history.",
     features: [
-      "All verticals, all channels",
+      "FDA recall radar + Amazon TIC compliance",
       "Slack + Teams + generic webhook",
       "Firm normalization + peer watch",
       "12-month history + severity filter",

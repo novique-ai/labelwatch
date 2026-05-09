@@ -565,6 +565,9 @@ export default async function AccountPage({
                 Run listing-copy audit →
               </a>
             )}
+            <a href="/account/compliance" style={{ ...s.manageBtn, marginLeft: 12, background: "transparent", border: "1px solid var(--color-border-subtle)", color: "var(--color-text-secondary)" }}>
+              Amazon TIC compliance →
+            </a>
           </p>
         </div>
 
