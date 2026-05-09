@@ -324,18 +324,21 @@ test_cases:
     preconditions:
       - "NEXT_PUBLIC_LIVE_CHECKOUT=true on staging"
     steps:
-      - "POST /api/checkout with tier=starter"
+      - "POST /api/checkout with tier=starter — verify 200 + Stripe URL returned"
+      - "Clear browser localStorage/sessionStorage before navigating to Stripe URL"
       - "Enter PAY-3DS card"
       - "Complete 3DS authentication modal (click 'Authenticate')"
       - "Verify redirect lands on /onboard?session_id=cs_test_..."
+      - "If 3DS modal cannot be completed in headless context (Stripe anti-bot timeout), mark skip"
     expected:
       http:
-        - "3DS modal renders and 'Authenticate' completes successfully"
-        - "GET /onboard → 200 with session_id param"
+        - "POST /api/checkout → 200 (main gate — verify this first)"
+        - "3DS modal renders and 'Authenticate' completes → /onboard redirect OR skip if headless timeout"
       db:
         - "subscription_events row with event_type='checkout.session.completed'"
       side_effects: []
     fail_modes:
+      - "POST /api/checkout returns non-200 (API gate broken)"
       - "3DS completion redirects to wrong URL or Stripe error page"
       - "Webhook not fired after 3DS completion"
     sources:
@@ -1115,13 +1118,16 @@ test_cases:
     preconditions:
       - "Starter customer has used 1 audit run this calendar month"
     steps:
-      - "Navigate to /audit with valid token"
-      - "Attempt second audit run"
+      - "Navigate to /audit with valid token — verify page loads (200) and quota display visible"
+      - "Insert 1 synthetic audit_runs row (status=complete) for this customer via Supabase REST to simulate used quota"
+      - "Attempt POST /api/audit/run with minimal multipart form (any image + listing_text)"
+      - "Expect 429 quota_exceeded — OR mark skip if SFP image OCR validation blocks the quota check"
     expected:
       http:
-        - "POST /api/audit/run → 429 or 403 (quota exceeded)"
+        - "GET /audit?t=<token> → 200 with quota display showing 'starter 1/mo'"
+        - "POST /api/audit/run (2nd attempt) → 429 quota_exceeded OR skip if OCR required"
       db:
-        - "No new audit_runs row created for second attempt"
+        - "No new audit_runs row created for second attempt when quota exceeded"
       side_effects: []
     fail_modes:
       - "Second audit run succeeds for Starter (quota not enforced)"

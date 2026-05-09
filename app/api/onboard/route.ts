@@ -141,6 +141,31 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "no_customer" }, { status: 400 });
   }
 
+  // §14.1 short-circuit: if this customer is already fully onboarded, return
+  // a graceful already_onboarded response before validating the rest of the
+  // body. This handles the re-click case (customer clicks the Stripe success
+  // URL again) without requiring a valid payload.
+  {
+    const supabase = getSupabase();
+    const { data: prior } = await supabase
+      .from("customers")
+      .select("id, onboarding_completed_at")
+      .eq("stripe_customer_id", stripeCustomerId)
+      .maybeSingle<{ id: string; onboarding_completed_at: string | null }>();
+    if (prior?.onboarding_completed_at) {
+      const res = NextResponse.json({
+        ok: true,
+        customer_id: prior.id,
+        already_onboarded: true,
+        backfill_run_id: null,
+        backfill_matched: 0,
+        signing_secret: null,
+      });
+      res.headers.append("Set-Cookie", buildSetCookieHeader(prior.id));
+      return res;
+    }
+  }
+
   const firmAliasesRaw = Array.isArray(body.firm_aliases) ? body.firm_aliases : [];
   const firmAliases = firmAliasesRaw
     .filter((a): a is string => typeof a === "string")

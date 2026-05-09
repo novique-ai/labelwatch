@@ -153,6 +153,9 @@ export async function POST(request: Request) {
         : null;
     return NextResponse.json({ ok: true, id, signing_secret: signingSecret });
   } catch (err) {
+    if ((err as { pgCode?: string }).pgCode === "23505") {
+      return NextResponse.json({ error: "channel_type_already_exists" }, { status: 422 });
+    }
     console.error("/api/account/channels POST failed:", err);
     return NextResponse.json({ error: "insert_failed" }, { status: 500 });
   }

@@ -234,6 +234,9 @@ export async function addCustomerChannel(
     .select("id")
     .single();
   if (error) {
+    if (error.code === "23505") {
+      throw Object.assign(new Error("channel_type_conflict"), { pgCode: "23505" });
+    }
     throw new Error(`customer_channels insert failed: ${error.message}`);
   }
   return { id: data.id };
