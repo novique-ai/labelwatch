@@ -24,12 +24,13 @@ export async function bulkInsertDeliveryJobs(
   supabase: SupabaseClient,
   matcherRunId: string,
   candidates: MatchCandidate[],
+  options?: { initialStatus?: string },
 ): Promise<DeliveryJobInsertResult> {
   let inserted = 0;
   let conflicted = 0;
 
   for (const c of candidates) {
-    const { error } = await supabase.from("delivery_jobs").insert({
+    const row: Record<string, unknown> = {
       recall_id: c.recallId,
       customer_id: c.customerId,
       customer_channel_id: c.customerChannelId,
@@ -37,7 +38,12 @@ export async function bulkInsertDeliveryJobs(
       matched_value: c.matchedValue,
       severity_class: c.severityClass,
       created_by_matcher_run_id: matcherRunId,
-    });
+    };
+    if (options?.initialStatus) {
+      row.status = options.initialStatus;
+      if (options.initialStatus === "sent") row.sent_at = new Date().toISOString();
+    }
+    const { error } = await supabase.from("delivery_jobs").insert(row);
     if (!error) {
       inserted++;
       continue;

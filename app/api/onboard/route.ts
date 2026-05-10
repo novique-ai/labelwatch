@@ -290,17 +290,15 @@ export async function POST(request: Request) {
     );
 
     // Per-customer 180-day backfill (bead infrastructure-xv3f, refined by
-    // infrastructure-cwlm 2026-05-01).
+    // infrastructure-cwlm 2026-05-01, fixed by infrastructure-q857 2026-05-10).
     //
-    // Runs the matcher across the customer's full backfill window to count
-    // matches and update matcher_runs telemetry, but DOES NOT enqueue
-    // per-recall delivery_jobs — emitDeliveryJobs=false. The customer
-    // receives ONE summary "welcome + N recalls in your last 180 days" email
-    // (sendOnboardingWelcomeEmail) instead of N individual recall alerts.
+    // Emits delivery_jobs with status='sent' so historical matches appear in
+    // the dashboard immediately after onboarding. Jobs are pre-marked sent so
+    // the deliver cron ignores them — no email/Slack flood on sign-up.
     //
-    // Steady-state delivery is unchanged: the global matcher cron continues
-    // to emit per-recall delivery_jobs for new recalls published AFTER the
-    // customer's onboarding timestamp.
+    // Steady-state delivery is unchanged: the global matcher cron emits
+    // per-recall delivery_jobs (status='pending') for new recalls published
+    // AFTER the customer's onboarding timestamp.
     //
     // Errors here are logged but do NOT fail the onboarding — the customer
     // is already a paying subscriber by this point.
@@ -310,7 +308,8 @@ export async function POST(request: Request) {
       try {
         const result = await runCustomerBackfill(customerId, {
           supabase,
-          emitDeliveryJobs: false,
+          emitDeliveryJobs: true,
+          initialJobStatus: "sent",
         });
         if (!result.skipped) {
           backfillRunId = result.runId;

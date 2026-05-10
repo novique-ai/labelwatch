@@ -286,6 +286,7 @@ export async function runCustomerBackfill(
     backfillDays?: number;
     supabase?: SupabaseClient;
     emitDeliveryJobs?: boolean;
+    initialJobStatus?: string;
   },
 ): Promise<MatcherResult> {
   const supabase = options?.supabase ?? getSupabase();
@@ -366,7 +367,9 @@ export async function runCustomerBackfill(
     }
 
     if (allCandidates.length > 0 && emitDeliveryJobs) {
-      const result = await bulkInsertDeliveryJobs(supabase, runId, allCandidates);
+      const result = await bulkInsertDeliveryJobs(supabase, runId, allCandidates, {
+        initialStatus: options?.initialJobStatus,
+      });
       jobsEmitted = result.inserted;
       jobsConflicted = result.conflicted;
     }
