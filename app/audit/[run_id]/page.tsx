@@ -56,7 +56,7 @@ export default async function AuditRunPage({
           </Link>
           <div className="flex items-center gap-6">
             <Link
-              href="/account"
+              href={`/account${tokenQ}`}
               className="font-mono text-[10px] uppercase tracking-[0.3em] text-ink-muted hover:text-ink"
             >
               ← Account
@@ -131,7 +131,7 @@ export default async function AuditRunPage({
 
         <footer className="mt-16 border-t border-rule pt-6 font-mono text-[10px] uppercase tracking-[0.3em] text-ink-muted print:hidden">
           ⌘P to save as PDF ·{" "}
-          <Link href="/account" className="hover:text-ink underline underline-offset-2">
+          <Link href={`/account${tokenQ}`} className="hover:text-ink underline underline-offset-2">
             Back to dashboard
           </Link>
         </footer>

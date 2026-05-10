@@ -1,12 +1,15 @@
 // /account — customer dashboard. Bead infrastructure-5ncn.
 //
 // Identity resolution priority:
-//   1. lw_customer cookie (HMAC-signed, set by /api/onboard, 90-day max-age)
-//   2. ?session_id=cs_... query param (first post-Stripe entry, before
+//   1. ?t= audit token (when navigating back from an audit results page —
+//      explicit customer identity beats the ambient cookie so multi-account
+//      browsers land on the right account)
+//   2. lw_customer cookie (HMAC-signed, set by /api/onboard, 90-day max-age)
+//   3. ?session_id=cs_... query param (first post-Stripe entry, before
 //      the API has had a chance to set the cookie — but onboard-form.tsx
 //      always lets the cookie set before redirecting, so this path is
 //      mostly a defensive fallback)
-//   3. neither → redirect to /?account=signin (a "use the link in your
+//   4. neither → redirect to /?account=signin (a "use the link in your
 //      Stripe receipt" message)
 //
 // Read-only for MVP1. Editing scope/channels is post-launch.
@@ -16,7 +19,7 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import type { CSSProperties } from "react";
 import { CUSTOMER_COOKIE_NAME, decodeCustomerCookie } from "@/lib/customer-session";
-import { signAuditToken } from "@/lib/audit-token";
+import { signAuditToken, verifyAuditToken } from "@/lib/audit-token";
 import { getStripe, isValidTier } from "@/lib/stripe";
 import { getSupabase } from "@/lib/supabase";
 import { TIER_HISTORY_DAYS, historyCutoffISO, getDeliveryCadence } from "@/lib/tier-limits";
@@ -76,14 +79,22 @@ type RecentMatchRow = {
   } | null;
 };
 
-async function resolveCustomerId(searchParams: { session_id?: string }): Promise<string | null> {
-  // 1. Cookie
+async function resolveCustomerId(searchParams: { session_id?: string; t?: string }): Promise<string | null> {
+  // 1. Audit token — explicit customer identity; wins over ambient cookie so
+  //    multi-account browsers navigating back from /audit land on the right account.
+  const auditToken = Array.isArray(searchParams.t) ? searchParams.t[0] : searchParams.t;
+  if (auditToken) {
+    const auth = verifyAuditToken(auditToken);
+    if (auth?.customerId) return auth.customerId;
+  }
+
+  // 2. Cookie
   const cookieStore = await cookies();
   const cookieValue = cookieStore.get(CUSTOMER_COOKIE_NAME)?.value;
   const fromCookie = decodeCustomerCookie(cookieValue);
   if (fromCookie) return fromCookie;
 
-  // 2. session_id fallback — re-derive customer_id from Stripe session → DB
+  // 3. session_id fallback — re-derive customer_id from Stripe session → DB
   const sessionId = searchParams.session_id;
   if (sessionId && sessionId.startsWith("cs_")) {
     try {
