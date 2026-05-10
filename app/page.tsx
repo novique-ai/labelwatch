@@ -449,14 +449,19 @@ export default async function Home() {
             </div>
             <div style={{ marginTop: 28 }}>
               {liveCheckout ? (
-                <CheckoutButton tier="starter" label="Start 14-day free trial" accent />
+                <a
+                  href="#pricing"
+                  className="block w-full px-5 py-3 font-mono uppercase tracking-widest text-xs border-2 transition-colors duration-200 text-center bg-recall text-paper border-recall hover:bg-recall-deep hover:border-recall-deep"
+                >
+                  Start 14-day free trial
+                </a>
               ) : (
                 <SignupForm tier="starter" />
               )}
             </div>
             <div style={s.fineprint}>
               {liveCheckout
-                ? "Card required to start the trial · No charge for 14 days · Cancel anytime in the portal."
+                ? "14-day free trial on all plans · No charge during trial · Cancel anytime."
                 : "No credit card · founding cohort · one email when we open."}
             </div>
           </div>
