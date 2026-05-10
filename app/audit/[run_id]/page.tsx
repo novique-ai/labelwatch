@@ -54,9 +54,17 @@ export default async function AuditRunPage({
           >
             label<span className="text-recall">.</span>watch
           </Link>
-          <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-ink-muted">
-            Audit report
-          </span>
+          <div className="flex items-center gap-6">
+            <Link
+              href="/account"
+              className="font-mono text-[10px] uppercase tracking-[0.3em] text-ink-muted hover:text-ink"
+            >
+              ← Account
+            </Link>
+            <span className="font-mono text-[10px] uppercase tracking-[0.3em] text-ink-muted">
+              Audit report
+            </span>
+          </div>
         </div>
 
         <header className="mb-10">
@@ -122,7 +130,10 @@ export default async function AuditRunPage({
         ) : null}
 
         <footer className="mt-16 border-t border-rule pt-6 font-mono text-[10px] uppercase tracking-[0.3em] text-ink-muted print:hidden">
-          ⌘P to save as PDF · Re-run anytime from the dashboard.
+          ⌘P to save as PDF ·{" "}
+          <Link href="/account" className="hover:text-ink underline underline-offset-2">
+            Back to dashboard
+          </Link>
         </footer>
       </div>
     </main>
