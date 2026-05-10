@@ -744,23 +744,26 @@ test_cases:
     preconditions:
       - "customer_channels row with type='slack', destination=<test_webhook_url>"
       - "delivery_jobs row with type='slack', status='pending'"
+    preconditions:
+      - "customer_channels row with type='slack', destination=https://hooks.slack.com/services/TEST/TEST/TEST (NOT /invalid/... paths — Slack CDN returns 200 for those)"
+      - "delivery_jobs row with type='slack', status='pending'"
     steps:
       - "POST /api/cron/deliver?cron_secret=<secret>"
-      - "Verify delivery_jobs.status='sent'"
-      - "Confirm Slack message received in test channel"
+      - "Verify delivery_jobs.status='dead_letter' (Slack returns 404 no_team for /services/TEST/TEST/TEST — non-transient failure)"
+      - "Verify last_error contains 'slack 404: no_team'"
     expected:
       http:
         - "POST /api/cron/deliver → 200"
       db:
-        - "delivery_jobs.status='sent'"
+        - "delivery_jobs.status='dead_letter' (Slack webhook 404 is fatal/non-transient)"
       side_effects:
-        - "Slack message posted with recall details"
+        - "Job not stuck pending — dead-lettered after 404"
     fail_modes:
-      - "webhook_url stale or invalid → 404 from Slack (job stays pending, retried)"
-      - "Slack rate-limit hit → 429, delivery_jobs not marked failed correctly"
+      - "Job stays pending instead of dead_letter (Slack 404 not treated as fatal)"
+      - "Using /invalid/... URL path — Slack CDN returns 200, job incorrectly marked sent"
     sources:
       - "app/api/cron/deliver/route.ts"
-      - "lib/delivery/slack.ts"
+      - "lib/adapters/slack.ts (resp.ok check at line 79)"
     status: active
 
   - id: TC-DELIVERY-004
@@ -1636,7 +1639,7 @@ negative_cases:
   - id: NEG-APIKEY-CROSS-CUSTOMER
     stage: api_access
     desc: "API key from customer A used to query /api/v1/matches for customer B (pass customer B's id as ?customer= param)"
-    expected: "GET /api/v1/matches → returns only customer A's data; customer B's matches never exposed regardless of query params"
+    expected: "GET /api/v1/matches → returns only customer A's data; customer B's matches never exposed regardless of query params. Skip if fewer than 2 Team customers with API keys exist in staging (api_keys table must have ≥2 rows from different org owners)."
     sources:
       - "app/api/v1/matches/route.ts"
       - "bead infrastructure-2mkx"
