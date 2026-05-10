@@ -1,5 +1,6 @@
 import Link from "next/link";
 import SignupForm from "./signup-form";
+import SignInForm from "./signin-form";
 import CheckoutButton from "./checkout-button";
 import PricingCta from "./pricing-cta";
 import RiskMeter from "./risk-meter";
@@ -393,10 +394,16 @@ function WireClassPill({ cls }: { cls: string }) {
   );
 }
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ account?: string }>;
+}) {
+  const params = await searchParams;
   const recalls = await fetchRecentSupplementRecalls(6);
   const portalLoginUrl = process.env.NEXT_PUBLIC_STRIPE_PORTAL_LOGIN_URL;
   const liveCheckout = process.env.NEXT_PUBLIC_LIVE_CHECKOUT === "true";
+  const showSignIn = params.account === "signin" || params.account === "not_found";
 
   const recallCount = Math.min(recalls.length, 10);
   const class1Count = recalls.filter(
@@ -405,6 +412,16 @@ export default async function Home() {
 
   return (
     <div style={s.page}>
+      {/* Sign-in prompt — shown when /account redirects here (no cookie) */}
+      {showSignIn && (
+        <div style={{ background: "#f5f1ea", borderBottom: "1px solid #d4c9b8", padding: "24px 32px" }}>
+          <p style={{ margin: "0 0 14px", fontFamily: "monospace", fontSize: 11, textTransform: "uppercase" as const, letterSpacing: "0.2em", color: "#6b6459" }}>
+            Access your account
+          </p>
+          <SignInForm />
+        </div>
+      )}
+
       {/* Top bar */}
       <header style={s.topbar}>
         <span style={s.brand}>LabelWatch</span>
