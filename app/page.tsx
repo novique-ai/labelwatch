@@ -409,7 +409,15 @@ export default async function Home() {
       <header style={s.topbar}>
         <span style={s.brand}>LabelWatch</span>
         <span>Amazon compliance intelligence · supplements</span>
-        <span>Vol. I · {TODAY}</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 20 }}>
+          <span>Vol. I · {TODAY}</span>
+          <Link
+            href="/account"
+            style={{ fontSize: 11, letterSpacing: 1.4, textTransform: "uppercase" as const, color: "var(--color-text-muted)", textDecoration: "none" }}
+          >
+            My Account →
+          </Link>
+        </span>
       </header>
 
       {/* Hero — 3-column grid */}
