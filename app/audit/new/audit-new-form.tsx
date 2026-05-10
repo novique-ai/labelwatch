@@ -41,6 +41,18 @@ export default function AuditNewForm({ token }: { token: string }) {
   const [error, setError] = useState<ErrorCode | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  function handlePaste(e: React.ClipboardEvent) {
+    const items = Array.from(e.clipboardData.items);
+    const imageItem = items.find((i) => i.kind === "file" && i.type.startsWith("image/"));
+    if (!imageItem) return;
+    const pasted = imageItem.getAsFile();
+    if (pasted) {
+      e.preventDefault();
+      setFile(new File([pasted], "pasted-sfp." + pasted.type.split("/")[1], { type: pasted.type }));
+      setError(null);
+    }
+  }
+
   function clientValidate(): ErrorCode | null {
     if (!file) return "missing_sfp_image";
     if (!ACCEPT.split(",").includes(file.type)) return "unsupported_image_type";
@@ -86,20 +98,34 @@ export default function AuditNewForm({ token }: { token: string }) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-8">
+    <form onSubmit={onSubmit} onPaste={handlePaste} className="space-y-8">
       <div>
         <label className="block font-mono text-[10px] uppercase tracking-[0.3em] text-ink-muted mb-2">
           1 — Supplement Facts Panel image
         </label>
-        <input
-          type="file"
-          accept={ACCEPT}
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          disabled={submitting}
-          className="block w-full text-sm file:mr-4 file:px-4 file:py-2 file:border file:border-rule file:bg-paper file:font-mono file:text-[10px] file:uppercase file:tracking-[0.2em] file:text-ink hover:file:bg-ink/5"
-        />
+        {file ? (
+          <div className="flex items-center gap-3 border border-rule bg-paper px-4 py-3 text-sm font-mono text-ink">
+            <span className="truncate">{file.name}</span>
+            <button
+              type="button"
+              onClick={() => setFile(null)}
+              disabled={submitting}
+              className="ml-auto shrink-0 text-xs text-ink-muted hover:text-recall"
+            >
+              ✕ remove
+            </button>
+          </div>
+        ) : (
+          <input
+            type="file"
+            accept={ACCEPT}
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            disabled={submitting}
+            className="block w-full text-sm file:mr-4 file:px-4 file:py-2 file:border file:border-rule file:bg-paper file:font-mono file:text-[10px] file:uppercase file:tracking-[0.2em] file:text-ink hover:file:bg-ink/5"
+          />
+        )}
         <p className="mt-2 text-xs text-ink-muted">
-          PNG or JPEG, max 10MB. Crop to just the SFP for best results.
+          PNG or JPEG, max 10MB. Crop to just the SFP for best results. You can also <strong>paste</strong> a screenshot directly (Ctrl+V / ⌘V).
         </p>
       </div>
 

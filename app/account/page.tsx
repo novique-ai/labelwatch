@@ -675,7 +675,7 @@ export default async function AccountPage({
             ) : (
               <span
                 title="Available on Team — upgrade to export your full match history as CSV"
-                style={{ fontSize: 11, letterSpacing: 1, textTransform: "uppercase" as const, color: "var(--color-text-muted)", border: "1px solid var(--color-border-subtle)", padding: "6px 12px", borderRadius: 3, cursor: "not-allowed" }}
+                style={{ fontSize: 11, letterSpacing: 1, textTransform: "uppercase" as const, color: "var(--color-text-muted)", border: "1px solid var(--color-border-subtle)", padding: "6px 12px", borderRadius: 3, cursor: "not-allowed", opacity: 0.45 }}
               >
                 Export CSV <span style={{ textTransform: "none" as const, fontStyle: "italic", letterSpacing: 0 }}>(Team only)</span>
               </span>

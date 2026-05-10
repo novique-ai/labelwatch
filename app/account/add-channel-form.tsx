@@ -117,6 +117,7 @@ export default function AddChannelForm({ tier, channelCount }: Props) {
   const visibleTypes: Type[] = (["email", "slack", "teams", "http"] as const).filter(
     (t) => allowedTypes.includes(t),
   );
+  const TYPE_LABEL: Record<Type, string> = { email: "Email", slack: "Slack", teams: "Teams", http: "HTTP Webhook" };
   const initialType: Type = visibleTypes[0] ?? "email";
 
   const [type, setType] = useState<Type>(initialType);
@@ -235,7 +236,7 @@ export default function AddChannelForm({ tier, channelCount }: Props) {
               ...(type === t ? styles.typeBtnActive : {}),
             }}
           >
-            {t}
+            {TYPE_LABEL[t]}
           </button>
         ))}
       </div>
