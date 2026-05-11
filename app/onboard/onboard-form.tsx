@@ -10,6 +10,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TIER_ALLOWED_CHANNEL_TYPES, TIER_BRAND_CAP } from "@/lib/tier-limits";
 import {
+  HTTP_WEBHOOK_HELP_ITEMS,
+  HTTP_WEBHOOK_HELP_SUMMARY,
+  TEAMS_WEBHOOK_HELP,
+} from "@/lib/channel-help";
+import {
   INGREDIENT_CATEGORIES,
   type ChannelConfig,
   type ChannelType,
@@ -555,24 +560,33 @@ export default function OnboardForm({
           )}
 
           {channel.type === "teams" && (
-            <label className="block mb-6">
-              <span className="block font-mono text-[10px] uppercase tracking-[0.3em] text-ink-muted mb-2">
-                Microsoft Teams incoming-webhook URL
-              </span>
-              <input
-                type="url"
-                value={channel.teamsWebhook}
-                onChange={(e) =>
-                  setChannel({ ...channel, teamsWebhook: e.target.value })
-                }
-                placeholder="https://outlook.office.com/webhook/..."
-                className="w-full rounded border border-rule bg-paper px-3 py-2 text-ink focus:outline-none focus:border-ink"
-              />
-            </label>
+            <>
+              <p className="mb-3 text-sm text-ink-muted">{TEAMS_WEBHOOK_HELP}</p>
+              <label className="block mb-6">
+                <span className="block font-mono text-[10px] uppercase tracking-[0.3em] text-ink-muted mb-2">
+                  Microsoft Teams incoming-webhook URL
+                </span>
+                <input
+                  type="url"
+                  value={channel.teamsWebhook}
+                  onChange={(e) =>
+                    setChannel({ ...channel, teamsWebhook: e.target.value })
+                  }
+                  placeholder="https://outlook.office.com/webhook/..."
+                  className="w-full rounded border border-rule bg-paper px-3 py-2 text-ink focus:outline-none focus:border-ink"
+                />
+              </label>
+            </>
           )}
 
           {channel.type === "http" && (
             <>
+              <p className="mb-2 text-sm text-ink-muted">{HTTP_WEBHOOK_HELP_SUMMARY}</p>
+              <ul className="mb-4 list-disc pl-5 text-sm text-ink-muted">
+                {HTTP_WEBHOOK_HELP_ITEMS.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
               <label className="block mb-4">
                 <span className="block font-mono text-[10px] uppercase tracking-[0.3em] text-ink-muted mb-2">
                   POST endpoint URL

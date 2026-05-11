@@ -16,6 +16,11 @@ import {
   TIER_ALLOWED_CHANNEL_TYPES,
   TIER_CHANNEL_CAP,
 } from "@/lib/tier-limits";
+import {
+  HTTP_WEBHOOK_HELP_ITEMS,
+  HTTP_WEBHOOK_HELP_SUMMARY,
+  TEAMS_WEBHOOK_HELP,
+} from "@/lib/channel-help";
 
 type Type = "email" | "slack" | "teams" | "http";
 
@@ -285,7 +290,7 @@ export default function AddChannelForm({ tier, channelCount }: Props) {
       {type === "teams" && (
         <>
           <p style={styles.hint}>
-            In Teams, go to the channel → Connectors → Incoming Webhook → copy the URL.
+            {TEAMS_WEBHOOK_HELP}
           </p>
           <input
             type="url"
@@ -310,6 +315,12 @@ export default function AddChannelForm({ tier, channelCount }: Props) {
 
       {type === "http" && (
         <>
+          <p style={styles.hint}>{HTTP_WEBHOOK_HELP_SUMMARY}</p>
+          <ul style={{ ...styles.hint, paddingLeft: 18, marginTop: 0 }}>
+            {HTTP_WEBHOOK_HELP_ITEMS.map((item) => (
+              <li key={item} style={{ marginBottom: 4 }}>{item}</li>
+            ))}
+          </ul>
           <input
             type="url"
             value={httpUrl}
@@ -335,10 +346,6 @@ export default function AddChannelForm({ tier, channelCount }: Props) {
           >
             {submitting ? "Adding…" : "Add HTTP channel"}
           </button>
-          <p style={{ ...styles.hint, marginTop: 8 }}>
-            We&apos;ll show the HMAC signing secret once after creation. Save it — you&apos;ll need it
-            to verify the X-LabelWatch-Signature header on incoming deliveries.
-          </p>
         </>
       )}
 

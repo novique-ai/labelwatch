@@ -743,7 +743,7 @@ export default async function AccountPage({
                     1 (833) 456-0671
                   </a>
                   <span style={{ color: "var(--color-text-muted)", fontSize: 12, marginLeft: 10 }}>
-                    Text for urgent issues · response within 2 hours during business hours
+                    Text for urgent issues
                   </span>
                 </div>
                 <div style={s.kvKey}>Email</div>
@@ -755,7 +755,7 @@ export default async function AccountPage({
                     support@novique.ai
                   </a>
                   <span style={{ color: "var(--color-text-muted)", fontSize: 12, marginLeft: 10 }}>
-                    For non-urgent requests · response within 48 hours
+                    For non-urgent requests
                   </span>
                 </div>
               </div>
