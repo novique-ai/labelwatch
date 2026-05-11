@@ -54,6 +54,35 @@ describe("diffSfpVsListing", () => {
     expect(phantom?.severity).toBe("high");
   });
 
+  it("does not flag ingredients declared in the label's Other Ingredients panel", () => {
+    const sfp: SfpExtract = {
+      ...baseSfp,
+      other_ingredients: [
+        "Natural and Artificial Flavor",
+        "Citric Acid",
+        "Calcium Silicate",
+        "Silicon Dioxide",
+        "Gum Blend (Cellulose Gum, Xanthan Gum, Carrageenan)",
+        "Sucralose",
+        "Tartaric Acid",
+        "Malic Acid",
+        "Acesulfame Potassium",
+        "Red 40",
+      ],
+    };
+    const listing: ListingExtract = {
+      ingredients: [
+        { name: "Sucralose", amount: null, line: 12 },
+        { name: "Red 40", amount: null, line: 13 },
+        { name: "Xanthan Gum", amount: null, line: 14 },
+      ],
+      claims: [],
+      warnings_surfaced: ["Keep out of reach of children."],
+    };
+    const findings = diffSfpVsListing(sfp, listing);
+    expect(findings.some((f) => f.finding_type === "ingredient_mismatch")).toBe(false);
+  });
+
   it("flags missing_warning when SFP warning is not surfaced in listing", () => {
     const listing: ListingExtract = {
       ingredients: [],

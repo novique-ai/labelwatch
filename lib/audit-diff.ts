@@ -58,6 +58,18 @@ function maxSeverity(a: AuditSeverity, b: AuditSeverity): AuditSeverity {
   return rank[a] >= rank[b] ? a : b;
 }
 
+function isDeclaredOtherIngredient(
+  normalizedName: string,
+  normalizedOtherIngredients: string[],
+): boolean {
+  return normalizedOtherIngredients.some(
+    (other) =>
+      other === normalizedName ||
+      other.includes(normalizedName) ||
+      normalizedName.includes(other),
+  );
+}
+
 export function diffSfpVsListing(
   sfp: SfpExtract,
   listing: ListingExtract,
@@ -68,6 +80,9 @@ export function diffSfpVsListing(
   for (const ing of sfp.ingredients) {
     sfpIngredientByName.set(normalizeIngredientName(ing.name), ing);
   }
+  const sfpOtherIngredients = (sfp.other_ingredients ?? [])
+    .map(normalizeIngredientName)
+    .filter((name) => name.length > 0);
   const sfpClaimsNormalized = new Set(
     sfp.claims.map((c) => c.toLowerCase().trim()).filter((c) => c.length > 0),
   );
@@ -97,6 +112,7 @@ export function diffSfpVsListing(
     const key = normalizeIngredientName(mention.name);
     const sfpRow = sfpIngredientByName.get(key);
     if (!sfpRow) {
+      if (isDeclaredOtherIngredient(key, sfpOtherIngredients)) continue;
       findings.push({
         finding_type: "ingredient_mismatch",
         severity: "high",

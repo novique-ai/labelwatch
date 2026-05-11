@@ -23,10 +23,10 @@ function getClient(): Anthropic {
 const SFP_TOOL: Anthropic.Tool = {
   name: "record_sfp",
   description:
-    "Record the structured contents of a Supplement Facts Panel extracted from the provided image.",
+    "Record the structured contents of a Supplement Facts Panel and adjacent Other Ingredients label text extracted from the provided image.",
   input_schema: {
     type: "object",
-    required: ["ingredients", "claims", "serving_size", "warnings"],
+    required: ["ingredients", "other_ingredients", "claims", "serving_size", "warnings"],
     properties: {
       ingredients: {
         type: "array",
@@ -40,6 +40,12 @@ const SFP_TOOL: Anthropic.Tool = {
             daily_value_pct: { type: ["string", "null"] },
           },
         },
+      },
+      other_ingredients: {
+        type: "array",
+        description:
+          "Ingredients declared in the label's Other Ingredients block outside the Supplement Facts table. Split comma-separated entries into individual ingredient names where possible, including sub-ingredients inside parentheticals.",
+        items: { type: "string" },
       },
       claims: {
         type: "array",
@@ -119,7 +125,7 @@ export async function extractSfpFromImage(
     tools: [SFP_TOOL],
     tool_choice: { type: "tool", name: SFP_TOOL.name },
     system:
-      "You are an expert at reading dietary-supplement labels. Extract the Supplement Facts Panel content verbatim. Preserve units and percentages exactly as printed. If a field is not present, return null (or empty array).",
+      "You are an expert at reading dietary-supplement labels. Extract the Supplement Facts Panel content verbatim and also capture any adjacent Other Ingredients block as label-declared ingredients. Preserve units and percentages exactly as printed. If a field is not present, return null (or empty array).",
     messages: [
       {
         role: "user",
@@ -134,7 +140,7 @@ export async function extractSfpFromImage(
           },
           {
             type: "text",
-            text: "Extract the SFP from this image and call record_sfp with the result.",
+            text: "Extract the SFP and Other Ingredients from this image and call record_sfp with the result.",
           },
         ],
       },

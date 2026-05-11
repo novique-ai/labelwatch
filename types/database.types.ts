@@ -170,6 +170,7 @@ export type SfpIngredient = {
 
 export type SfpExtract = {
   ingredients: SfpIngredient[];
+  other_ingredients?: string[];
   claims: string[];
   serving_size: string | null;
   warnings: string[];
