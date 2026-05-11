@@ -26,6 +26,19 @@ describe("diffSfpVsListing", () => {
     expect(drift?.listing_line).toBe(4);
   });
 
+  it("does not flag ordinary benefit marketing claims just because they are absent from the SFP", () => {
+    const listing: ListingExtract = {
+      ingredients: [],
+      claims: [
+        { text: "Supports better muscle buffering and increased reps.", line: 4 },
+        { text: "Enhanced energy, hydration, and workout performance.", line: 5 },
+      ],
+      warnings_surfaced: ["Keep out of reach of children."],
+    };
+    const findings = diffSfpVsListing(baseSfp, listing);
+    expect(findings.some((f) => f.finding_type === "claim_drift")).toBe(false);
+  });
+
   it("flags ingredient_mismatch when listing amount disagrees with SFP", () => {
     const listing: ListingExtract = {
       ingredients: [{ name: "Vitamin C", amount: "1000mg", line: 7 }],
@@ -83,6 +96,32 @@ describe("diffSfpVsListing", () => {
     expect(findings.some((f) => f.finding_type === "ingredient_mismatch")).toBe(false);
   });
 
+  it("matches trademarked SFP ingredient rows against listing rows with expanded sub-ingredients", () => {
+    const sfp: SfpExtract = {
+      ingredients: [
+        { name: "Senactiv® (Panax notoginseng (root) Extract, Rosa roxburghii (fruit) Extract)", amount: "50 mg", daily_value_pct: "*" },
+        { name: "AstraGin® (Astragalus membranaceus (root) Extract, Panax notoginseng (root) Extract)", amount: "50 mg", daily_value_pct: "*" },
+        { name: "Caffeine Blend (Rapid Release as Caffeine Anhydrous (200 mg), Targeted Release as ZümXR® Caffeine (50 mg))", amount: "250 mg", daily_value_pct: "*" },
+        { name: "Includes 0 g Added Sugars", amount: "0 g", daily_value_pct: "0%†" },
+      ],
+      claims: [],
+      serving_size: "One Scoop",
+      warnings: [],
+    };
+    const listing: ListingExtract = {
+      ingredients: [
+        { name: "Senactiv (Panax notoginseng root extract and Rosa roxburghii fruit extract)", amount: "50 mg", line: 16 },
+        { name: "AstraGin (Astragalus membranaceus root extract and Panax notoginseng root extract)", amount: "50 mg", line: 16 },
+        { name: "Caffeine Blend (Caffeine Anhydrous 200 mg and ZümXR Caffeine 50 mg)", amount: "250 mg", line: 16 },
+        { name: "Added Sugars", amount: "0 g", line: 16 },
+      ],
+      claims: [],
+      warnings_surfaced: [],
+    };
+    const findings = diffSfpVsListing(sfp, listing);
+    expect(findings.some((f) => f.finding_type === "ingredient_mismatch")).toBe(false);
+  });
+
   it("flags missing_warning when SFP warning is not surfaced in listing", () => {
     const listing: ListingExtract = {
       ingredients: [],
@@ -93,6 +132,23 @@ describe("diffSfpVsListing", () => {
     const missing = findings.find((f) => f.finding_type === "missing_warning");
     expect(missing).toBeDefined();
     expect(missing?.severity).toBe("medium");
+  });
+
+  it("does not treat SFP daily-value footnotes as missing warnings", () => {
+    const sfp: SfpExtract = {
+      ...baseSfp,
+      warnings: [
+        "† Percent Daily Values are based on a 2,000 calorie diet.",
+        "* Daily Value not established.",
+      ],
+    };
+    const listing: ListingExtract = {
+      ingredients: [],
+      claims: [],
+      warnings_surfaced: [],
+    };
+    const findings = diffSfpVsListing(sfp, listing);
+    expect(findings.some((f) => f.finding_type === "missing_warning")).toBe(false);
   });
 
   it("returns no findings when listing matches SFP perfectly", () => {

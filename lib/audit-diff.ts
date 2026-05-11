@@ -35,6 +35,33 @@ function normalizeIngredientName(s: string): string {
     .trim();
 }
 
+function ingredientNameVariants(s: string): string[] {
+  const variants = new Set<string>();
+  const add = (value: string) => {
+    const normalized = normalizeIngredientName(value);
+    if (normalized.length > 0) variants.add(normalized);
+  };
+
+  add(s);
+  add(s.replace(/\bincludes?\s+\d+(?:\.\d+)?\s*(?:g|mg|mcg|iu)\b/gi, ""));
+
+  const parenIdx = s.indexOf("(");
+  if (parenIdx > 0) add(s.slice(0, parenIdx));
+
+  return [...variants];
+}
+
+function ingredientNamesCompatible(a: string, b: string): boolean {
+  const aVariants = ingredientNameVariants(a);
+  const bVariants = ingredientNameVariants(b);
+  for (const av of aVariants) {
+    for (const bv of bVariants) {
+      if (av === bv || av.includes(bv) || bv.includes(av)) return true;
+    }
+  }
+  return false;
+}
+
 function normalizeAmount(s: string | null): string | null {
   if (!s) return null;
   return s
@@ -70,6 +97,11 @@ function isDeclaredOtherIngredient(
   );
 }
 
+function isDailyValueFootnote(text: string): boolean {
+  return /daily values?\s+are\s+based\s+on/i.test(text) ||
+    /daily value\s+not\s+established/i.test(text);
+}
+
 export function diffSfpVsListing(
   sfp: SfpExtract,
   listing: ListingExtract,
@@ -78,7 +110,9 @@ export function diffSfpVsListing(
 
   const sfpIngredientByName = new Map<string, SfpIngredient>();
   for (const ing of sfp.ingredients) {
-    sfpIngredientByName.set(normalizeIngredientName(ing.name), ing);
+    for (const variant of ingredientNameVariants(ing.name)) {
+      sfpIngredientByName.set(variant, ing);
+    }
   }
   const sfpOtherIngredients = (sfp.other_ingredients ?? [])
     .map(normalizeIngredientName)
@@ -95,12 +129,13 @@ export function diffSfpVsListing(
   for (const claim of listing.claims) {
     const norm = claim.text.toLowerCase().trim();
     if (sfpClaimsNormalized.has(norm)) continue;
+    if (severityForClaim(claim.text) !== "high") continue;
     findings.push({
       finding_type: "claim_drift",
-      severity: severityForClaim(claim.text),
+      severity: "high",
       excerpt: claim.text,
       detail:
-        "Marketing claim in the listing is not stated on the Supplement Facts Panel. Review for substantiation; high-severity findings reference disease/treatment language and should be removed.",
+        "Listing claim uses disease/treatment/FDA-approval language that needs regulatory review. Ordinary benefit claims are not expected to appear on the Supplement Facts Panel.",
       sfp_reference: null,
       listing_line: claim.line,
     });
@@ -109,10 +144,16 @@ export function diffSfpVsListing(
   // 2) ingredient_mismatch: listing names an amount that disagrees with SFP, or
   //    listing names an ingredient not on the SFP at all.
   for (const mention of listing.ingredients) {
-    const key = normalizeIngredientName(mention.name);
-    const sfpRow = sfpIngredientByName.get(key);
+    const mentionVariants = ingredientNameVariants(mention.name);
+    const sfpRow =
+      mentionVariants.map((key) => sfpIngredientByName.get(key)).find(Boolean) ??
+      sfp.ingredients.find((ing) => ingredientNamesCompatible(mention.name, ing.name));
     if (!sfpRow) {
-      if (isDeclaredOtherIngredient(key, sfpOtherIngredients)) continue;
+      if (
+        mentionVariants.some((key) =>
+          isDeclaredOtherIngredient(key, sfpOtherIngredients),
+        )
+      ) continue;
       findings.push({
         finding_type: "ingredient_mismatch",
         severity: "high",
@@ -145,6 +186,7 @@ export function diffSfpVsListing(
   for (const warning of sfp.warnings) {
     const norm = warning.toLowerCase().trim();
     if (norm.length === 0) continue;
+    if (isDailyValueFootnote(warning)) continue;
     const surfaced = [...surfacedNorm].some(
       (s) => s.includes(norm) || norm.includes(s),
     );
