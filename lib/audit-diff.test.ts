@@ -166,6 +166,36 @@ describe("diffSfpVsListing", () => {
     expect(findings.some((f) => f.finding_type === "ingredient_mismatch")).toBe(false);
   });
 
+  it("matches common additive and vitamin aliases from OCR/listing variants", () => {
+    const sfp: SfpExtract = {
+      ingredients: [
+        { name: "PerforMelon™ (Citrullus lanatus, fruit)", amount: "100 mg", daily_value_pct: "*" },
+      ],
+      other_ingredients: [
+        "Riboflavin",
+        "Carboxymethylcellulose Sodium",
+        "Gelatin",
+        "Cocoa",
+      ],
+      claims: [],
+      serving_size: "1 scoop",
+      warnings: [],
+    };
+    const listing: ListingExtract = {
+      ingredients: [
+        { name: "PerforMelon Citrullus lanatus fruit", amount: null, line: 1 },
+        { name: "Riboflavin (Vitamin B2)", amount: null, line: 1 },
+        { name: "Cellulose Gum", amount: null, line: 1 },
+        { name: "Gelatine", amount: null, line: 1 },
+        { name: "Cocoa Powder", amount: null, line: 1 },
+      ],
+      claims: [],
+      warnings_surfaced: [],
+    };
+    const findings = diffSfpVsListing(sfp, listing);
+    expect(findings.filter((f) => f.finding_type === "ingredient_mismatch")).toEqual([]);
+  });
+
   it("matches common protein-powder label vocabulary variants", () => {
     const sfp: SfpExtract = {
       ingredients: [],
@@ -248,6 +278,36 @@ describe("diffSfpVsListing", () => {
           line: 4,
         },
       ],
+      warnings_surfaced: [],
+    };
+    const findings = diffSfpVsListing(sfp, listing);
+    expect(findings.some((f) => f.finding_type === "missing_warning")).toBe(false);
+  });
+
+  it("does not treat storage and lot-code text as missing warnings", () => {
+    const sfp: SfpExtract = {
+      ...baseSfp,
+      warnings: [
+        "STORE IN A COOL, DRY PLACE. DO NOT REFRIGERATE. BEST BEFORE END: SEE BOTTOM OF CONTAINER. LOT NUMBER: SEE BOTTOM OF CONTAINER.",
+      ],
+    };
+    const listing: ListingExtract = {
+      ingredients: [],
+      claims: [],
+      warnings_surfaced: [],
+    };
+    const findings = diffSfpVsListing(sfp, listing);
+    expect(findings.some((f) => f.finding_type === "missing_warning")).toBe(false);
+  });
+
+  it("uses listing ingredient names as surfaced allergen warning evidence", () => {
+    const sfp: SfpExtract = {
+      ...baseSfp,
+      warnings: ["GLUTEN: Contains Gluten."],
+    };
+    const listing: ListingExtract = {
+      ingredients: [{ name: "Gluten", amount: null, line: 1 }],
+      claims: [],
       warnings_surfaced: [],
     };
     const findings = diffSfpVsListing(sfp, listing);

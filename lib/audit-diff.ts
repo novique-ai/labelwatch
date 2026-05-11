@@ -43,6 +43,12 @@ function normalizeIngredientName(s: string): string {
     .replace(/\bvegetable oils?\b/g, "palm oil")
     .replace(/\bcookie crumbs?\b/g, "cookie")
     .replace(/\bchocolate cookie pieces?\b/g, "cookie")
+    .replace(/\bcellulose gum\b/g, "carboxymethylcellulose")
+    .replace(/\bcarboxy methyl cellulose\b/g, "carboxymethylcellulose")
+    .replace(/\bcarboxymethylcellulose sodium\b/g, "carboxymethylcellulose")
+    .replace(/\bgelatine\b/g, "gelatin")
+    .replace(/\bcocoa powder\b/g, "cocoa")
+    .replace(/\bvitamin b2\b/g, "riboflavin")
     .replace(/\bmilk whey protein\b/g, "whey protein")
     .replace(/\bwhey protein blend\b/g, "whey protein")
     .replace(/\bhydrolysed whey protein isolate\b/g, "whey protein")
@@ -131,6 +137,14 @@ function isDailyValueFootnote(text: string): boolean {
     /daily value\s+not\s+established/i.test(text);
 }
 
+function isStorageOrLotText(text: string): boolean {
+  const lower = text.toLowerCase();
+  return /(store|keep)\s+in\s+a\s+(cool|dry)/i.test(text) ||
+    /best before/i.test(text) ||
+    /lot (number|#)|batch/i.test(lower) ||
+    /do not refrigerate/i.test(text);
+}
+
 export function diffSfpVsListing(
   sfp: SfpExtract,
   listing: ListingExtract,
@@ -212,13 +226,19 @@ export function diffSfpVsListing(
   const surfacedNorm = new Set([
     ...listing.warnings_surfaced.map((w) => w.toLowerCase().trim()),
     ...listing.claims.map((c) => c.text.toLowerCase().trim()),
+    ...listing.ingredients.map((i) => normalizeIngredientName(i.name)),
   ]);
   for (const warning of sfp.warnings) {
     const norm = warning.toLowerCase().trim();
     if (norm.length === 0) continue;
     if (isDailyValueFootnote(warning)) continue;
+    if (isStorageOrLotText(warning)) continue;
+    const warningIngredientNorm = normalizeIngredientName(warning);
     const surfaced = [...surfacedNorm].some(
-      (s) => s.includes(norm) || norm.includes(s),
+      (s) =>
+        s.includes(norm) ||
+        norm.includes(s) ||
+        (s.length >= 4 && warningIngredientNorm.includes(s)),
     );
     if (surfaced) continue;
     findings.push({
