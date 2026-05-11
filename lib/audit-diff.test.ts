@@ -67,7 +67,7 @@ describe("diffSfpVsListing", () => {
       warnings_surfaced: [],
     };
     const findings = diffSfpVsListing(sfp, listing);
-    expect(findings.some((f) => f.finding_type === "ingredient_mismatch")).toBe(false);
+    expect(findings.filter((f) => f.finding_type === "ingredient_mismatch")).toEqual([]);
   });
 
   it("flags ingredient_mismatch when listing names an ingredient not on the SFP", () => {
@@ -111,7 +111,7 @@ describe("diffSfpVsListing", () => {
       warnings_surfaced: ["Keep out of reach of children."],
     };
     const findings = diffSfpVsListing(sfp, listing);
-    expect(findings.some((f) => f.finding_type === "ingredient_mismatch")).toBe(false);
+    expect(findings.filter((f) => f.finding_type === "ingredient_mismatch")).toEqual([]);
   });
 
   it("matches trademarked SFP ingredient rows against listing rows with expanded sub-ingredients", () => {
@@ -164,6 +164,40 @@ describe("diffSfpVsListing", () => {
     };
     const findings = diffSfpVsListing(sfp, listing);
     expect(findings.some((f) => f.finding_type === "ingredient_mismatch")).toBe(false);
+  });
+
+  it("matches common protein-powder label vocabulary variants", () => {
+    const sfp: SfpExtract = {
+      ingredients: [],
+      other_ingredients: [
+        "Whey Protein Isolate",
+        "Whey Protein Concentrate",
+        "Chocolate Cookie Pieces (Wheat Flour, Sugar, Palm Oil, Cocoa Powder, Salt, Sodium Bicarbonate, Soy Lecithin)",
+        "Flavour",
+        "Soy Lecithin",
+        "Xanthan Gum",
+        "Sucralose",
+      ],
+      claims: [],
+      serving_size: "32 g",
+      warnings: [],
+    };
+    const listing: ListingExtract = {
+      ingredients: [
+        { name: "Whey Protein Blend", amount: null, line: 1 },
+        { name: "Milk Whey Protein Isolate", amount: null, line: 1 },
+        { name: "Flavorings", amount: null, line: 1 },
+        { name: "Cookie Crumb", amount: null, line: 1 },
+        { name: "Gluten", amount: null, line: 1 },
+        { name: "Vegetable Fats", amount: null, line: 1 },
+        { name: "Sodium Chloride", amount: null, line: 1 },
+        { name: "Sucralose (Sweetener)", amount: null, line: 1 },
+      ],
+      claims: [],
+      warnings_surfaced: [],
+    };
+    const findings = diffSfpVsListing(sfp, listing);
+    expect(findings.filter((f) => f.finding_type === "ingredient_mismatch")).toEqual([]);
   });
 
   it("flags missing_warning when SFP warning is not surfaced in listing", () => {
