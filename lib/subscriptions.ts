@@ -1,5 +1,6 @@
 import type Stripe from "stripe";
 import { getSupabase } from "./supabase";
+import { sendEmail, URGENT_HEADERS } from "./resend";
 
 type Tier = "starter" | "pro" | "team";
 
@@ -24,6 +25,43 @@ type EventRow = {
   status: string | null;
   raw: Stripe.Event;
 };
+
+function alertTo(): string {
+  return process.env.SUBSCRIPTION_ALERT_TO ?? "support@novique.ai";
+}
+
+function alertFrom(): string {
+  return process.env.CONTACT_EMAIL_FROM ?? "LabelWatch <noreply@label.watch>";
+}
+
+async function notifySubscriptionEvent(row: EventRow): Promise<void> {
+  const subject = `LabelWatch subscription event — ${row.event_type}`;
+  const text = [
+    "LabelWatch received a Stripe subscription event.",
+    "",
+    `Event:       ${row.event_type}`,
+    `Stripe ID:   ${row.stripe_event_id}`,
+    `Tier:        ${row.tier ?? "unknown"}`,
+    `Status:      ${row.status ?? "unknown"}`,
+    `Customer:    ${row.stripe_customer_id ?? "unknown"}`,
+    `Subscription:${row.stripe_subscription_id ?? "unknown"}`,
+    `Livemode:    ${row.raw.livemode ? "true" : "false"}`,
+  ].join("\n");
+
+  const result = await sendEmail({
+    from: alertFrom(),
+    to: alertTo(),
+    subject,
+    text,
+    headers: URGENT_HEADERS,
+  });
+
+  if (!result.ok) {
+    console.error(
+      `[subscription-event] operator alert failed for ${row.stripe_event_id}: ${result.error}`,
+    );
+  }
+}
 
 function shapeRow(event: Stripe.Event): EventRow {
   const row: EventRow = {
@@ -121,5 +159,14 @@ export async function persistSubscriptionEvent(event: Stripe.Event): Promise<voi
       return;
     }
     throw new Error(`supabase insert failed: ${error.message}`);
+  }
+
+  try {
+    await notifySubscriptionEvent(row);
+  } catch (err) {
+    console.error(
+      `[subscription-event] operator alert exception for ${row.stripe_event_id}:`,
+      err,
+    );
   }
 }

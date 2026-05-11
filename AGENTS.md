@@ -1,6 +1,6 @@
 ---
 owner: Clayton
-last_reviewed: 2026-05-10
+last_reviewed: 2026-05-11
 source_of_truth_for: LabelWatch product operating contract — extends IDE constitution + Shell Corp playbook
 supersedes: null
 ---
@@ -108,6 +108,7 @@ Staging uses Stripe **test** mode (sk_test_51TNxMy...). Staging webhook endpoint
 | `RESEND_API_KEY` | Sends recall alert emails + digest emails + contact form notifications | `RESEND_API_KEY` in System vault | Email channel deliveries fail silently (delivery_jobs → dead_letter); contact form 500s |
 | `CONTACT_EMAIL_TO` | Destination for contact form submissions | Hardcoded `support@novique.ai` in Vercel | Contact form emails go to wrong address |
 | `CONTACT_EMAIL_FROM` | Sender identity on contact form emails | Hardcoded in Vercel | Resend rejects if domain not verified |
+| `SUBSCRIPTION_ALERT_TO` | Operator alert destination for Stripe subscription events | Optional; defaults to `support@novique.ai` | Stripe events are persisted, but operator signup/payment alerts go to wrong address |
 
 Domain `label.watch` must be verified in Resend dashboard for `noreply@label.watch` to send. Resend → Domains → `label.watch` → DNS records must be present at Namecheap/Vercel DNS.
 
