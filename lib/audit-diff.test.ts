@@ -52,6 +52,24 @@ describe("diffSfpVsListing", () => {
     expect(mismatch.sfp_reference).toBe("Vitamin C");
   });
 
+  it("treats equivalent gram and milligram amounts as matching", () => {
+    const sfp: SfpExtract = {
+      ingredients: [
+        { name: "L-Arginine (Free-Form)", amount: "1 g (1,000 mg)", daily_value_pct: "**" },
+      ],
+      claims: [],
+      serving_size: "2 capsules",
+      warnings: [],
+    };
+    const listing: ListingExtract = {
+      ingredients: [{ name: "L-Arginine (free-form)", amount: "1000 mg", line: 1 }],
+      claims: [],
+      warnings_surfaced: [],
+    };
+    const findings = diffSfpVsListing(sfp, listing);
+    expect(findings.some((f) => f.finding_type === "ingredient_mismatch")).toBe(false);
+  });
+
   it("flags ingredient_mismatch when listing names an ingredient not on the SFP", () => {
     const listing: ListingExtract = {
       ingredients: [{ name: "Ashwagandha", amount: "300mg", line: 9 }],
@@ -171,6 +189,31 @@ describe("diffSfpVsListing", () => {
     const listing: ListingExtract = {
       ingredients: [],
       claims: [],
+      warnings_surfaced: [],
+    };
+    const findings = diffSfpVsListing(sfp, listing);
+    expect(findings.some((f) => f.finding_type === "missing_warning")).toBe(false);
+  });
+
+  it("treats warning text extracted as listing claims as surfaced warning text", () => {
+    const sfp: SfpExtract = {
+      ...baseSfp,
+      warnings: [
+        "Not manufactured with wheat, gluten, soy, milk, egg, fish, shellfish or tree nut ingredients. Produced in a GMP facility that processes other ingredients containing these allergens.",
+      ],
+    };
+    const listing: ListingExtract = {
+      ingredients: [],
+      claims: [
+        {
+          text: "Not manufactured with wheat, gluten, soy, milk, egg, fish, shellfish or tree nut ingredients.",
+          line: 3,
+        },
+        {
+          text: "Produced in a GMP facility that processes other ingredients containing these allergens.",
+          line: 4,
+        },
+      ],
       warnings_surfaced: [],
     };
     const findings = diffSfpVsListing(sfp, listing);

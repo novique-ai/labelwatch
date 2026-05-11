@@ -44,7 +44,7 @@ const SFP_TOOL: Anthropic.Tool = {
       other_ingredients: {
         type: "array",
         description:
-          "Ingredients declared in the label's Other Ingredients block outside the Supplement Facts table. Split comma-separated entries into individual ingredient names where possible, including sub-ingredients inside parentheticals.",
+          "Ingredients declared outside the Supplement Facts or nutrition table, including sections labeled Other Ingredients, Ingredients, EN INGREDIENTS, allergen ingredient lists, or equivalent. Split comma-separated entries into individual ingredient names where possible, including sub-ingredients inside parentheticals.",
         items: { type: "string" },
       },
       claims: {
@@ -125,7 +125,7 @@ export async function extractSfpFromImage(
     tools: [SFP_TOOL],
     tool_choice: { type: "tool", name: SFP_TOOL.name },
     system:
-      "You are an expert at reading dietary-supplement labels. Extract the Supplement Facts Panel content verbatim and also capture any adjacent Other Ingredients block as label-declared ingredients. Preserve units and percentages exactly as printed. If a field is not present, return null (or empty array).",
+      "You are an expert at reading dietary-supplement labels. Extract the Supplement Facts Panel or nutrition table content verbatim and also capture any label-declared ingredient list outside that table, including headings like Other Ingredients, Ingredients, EN INGREDIENTS, or equivalent multilingual ingredient sections. Preserve units and percentages exactly as printed. If a field is not present, return null (or empty array).",
     messages: [
       {
         role: "user",
@@ -140,7 +140,7 @@ export async function extractSfpFromImage(
           },
           {
             type: "text",
-            text: "Extract the SFP and Other Ingredients from this image and call record_sfp with the result.",
+            text: "Extract the SFP or nutrition table plus all label-declared ingredients outside that table from this image and call record_sfp with the result.",
           },
         ],
       },

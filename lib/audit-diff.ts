@@ -68,13 +68,22 @@ function ingredientNamesCompatible(a: string, b: string): boolean {
 
 function normalizeAmount(s: string | null): string | null {
   if (!s) return null;
-  return s
+  const normalized = s
     .toLowerCase()
+    .replace(/,/g, "")
     .replace(/\s+/g, "")
     .replace(/micrograms?/g, "mcg")
     .replace(/milligrams?/g, "mg")
     .replace(/grams?\b/g, "g")
     .replace(/international\s*units?/g, "iu");
+  const match = normalized.match(/(\d+(?:\.\d+)?)(mcg|mg|g|iu)/);
+  if (!match) return normalized;
+  const value = Number(match[1]);
+  const unit = match[2];
+  if (!Number.isFinite(value)) return normalized;
+  if (unit === "g") return `${value * 1000}mg`;
+  if (unit === "mcg") return `${value / 1000}mg`;
+  return `${value}${unit}`;
 }
 
 function severityForClaim(claimText: string): AuditSeverity {
@@ -184,9 +193,10 @@ export function diffSfpVsListing(
   }
 
   // 3) missing_warning: SFP carries a warning that the listing copy never surfaces.
-  const surfacedNorm = new Set(
-    listing.warnings_surfaced.map((w) => w.toLowerCase().trim()),
-  );
+  const surfacedNorm = new Set([
+    ...listing.warnings_surfaced.map((w) => w.toLowerCase().trim()),
+    ...listing.claims.map((c) => c.text.toLowerCase().trim()),
+  ]);
   for (const warning of sfp.warnings) {
     const norm = warning.toLowerCase().trim();
     if (norm.length === 0) continue;
