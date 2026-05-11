@@ -29,6 +29,10 @@ const HIGH_RISK_CLAIM_PATTERNS: RegExp[] = [
 function normalizeIngredientName(s: string): string {
   return s
     .toLowerCase()
+    .replace(/\bpiperine\b/g, "piper nigrum")
+    .replace(/\bblack pepper\b/g, "piper nigrum")
+    .replace(/\bniacin\b/g, "nicotinamide")
+    .replace(/\bpantothenic acid\b/g, "calcium d pantothenate")
     .replace(/\bvit\b/g, "vitamin")
     .replace(/[^a-z0-9 ]+/g, " ")
     .replace(/\s+/g, " ")

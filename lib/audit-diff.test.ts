@@ -122,6 +122,32 @@ describe("diffSfpVsListing", () => {
     expect(findings.some((f) => f.finding_type === "ingredient_mismatch")).toBe(false);
   });
 
+  it("matches common vitamin and botanical alias names", () => {
+    const sfp: SfpExtract = {
+      ingredients: [
+        { name: "Piper nigrum Extract (fruit)", amount: "2.5 mg", daily_value_pct: "†" },
+      ],
+      other_ingredients: [
+        "Nicotinamide",
+        "Calcium D-Pantothenate",
+      ],
+      claims: [],
+      serving_size: "1 scoop",
+      warnings: [],
+    };
+    const listing: ListingExtract = {
+      ingredients: [
+        { name: "piperine", amount: null, line: 1 },
+        { name: "niacin", amount: null, line: 1 },
+        { name: "pantothenic acid", amount: null, line: 1 },
+      ],
+      claims: [],
+      warnings_surfaced: [],
+    };
+    const findings = diffSfpVsListing(sfp, listing);
+    expect(findings.some((f) => f.finding_type === "ingredient_mismatch")).toBe(false);
+  });
+
   it("flags missing_warning when SFP warning is not surfaced in listing", () => {
     const listing: ListingExtract = {
       ingredients: [],
