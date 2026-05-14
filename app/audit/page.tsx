@@ -1,3 +1,7 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { robots: { index: false, follow: false } };
+
 // /audit — token-gated dashboard. Lists past runs, links to "New audit" + each run.
 
 import Link from "next/link";

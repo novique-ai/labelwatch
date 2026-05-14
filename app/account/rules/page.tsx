@@ -1,3 +1,7 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { robots: { index: false, follow: false } };
+
 // /account/rules — custom alert rule management. Team only. Bead infrastructure-yo7k.
 
 import Link from "next/link";

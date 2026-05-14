@@ -1,3 +1,7 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { robots: { index: false, follow: false } };
+
 // /onboard — post-Stripe-Checkout profile collection.
 // Server Component: reads session_id from the URL (Stripe appends
 // {CHECKOUT_SESSION_ID}), retrieves the Checkout Session server-side to prefill

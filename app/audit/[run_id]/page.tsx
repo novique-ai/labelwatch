@@ -1,3 +1,7 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { robots: { index: false, follow: false } };
+
 // /audit/[run_id] — finding-by-finding viewer. Print-friendly via ⌘P.
 
 import Link from "next/link";

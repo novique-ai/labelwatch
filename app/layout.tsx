@@ -46,7 +46,49 @@ export default function RootLayout({
       lang="en"
       className={`${instrumentSerif.variable} ${jetbrains.variable} h-full`}
     >
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        {/* eslint-disable-next-line react/no-danger -- static hardcoded JSON-LD, no user input */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              name: "LabelWatch",
+              url: "https://label.watch",
+              description:
+                "FDA recall intelligence for dietary supplement brands. Multi-channel alerts, ingredient filtering, peer watch, and Amazon TIC compliance checks.",
+              contactPoint: {
+                "@type": "ContactPoint",
+                contactType: "customer support",
+                url: "https://label.watch/contact",
+              },
+            }),
+          }}
+        />
+        {/* eslint-disable-next-line react/no-danger -- static hardcoded JSON-LD, no user input */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "SoftwareApplication",
+              name: "LabelWatch",
+              applicationCategory: "BusinessApplication",
+              operatingSystem: "Web",
+              url: "https://label.watch",
+              description:
+                "Multi-channel FDA dietary supplement recall alerts with ingredient-level filtering, peer watch, and Amazon TIC compliance monitoring.",
+              offers: [
+                { "@type": "Offer", name: "Starter", price: "39", priceCurrency: "USD" },
+                { "@type": "Offer", name: "Pro", price: "99", priceCurrency: "USD" },
+                { "@type": "Offer", name: "Team", price: "299", priceCurrency: "USD" },
+              ],
+            }),
+          }}
+        />
+        {children}
+      </body>
     </html>
   );
 }

@@ -1,3 +1,7 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { robots: { index: false, follow: false } };
+
 // /onboard/complete — thank-you page after successful onboarding.
 // Conditionally renders the HTTP-webhook signing_secret (passed in via
 // search param `signing_secret`) when the customer onboarded an http
