@@ -200,6 +200,17 @@ const s = {
     borderBottom: "1px solid #2a2a26",
   } as CSSProperties,
 
+  dataDisclaimer: {
+    maxWidth: 720,
+    margin: "0 auto",
+    padding: "24px 40px",
+    fontFamily: "var(--font-jetbrains), monospace",
+    fontSize: 11,
+    lineHeight: 1.7,
+    color: "#807a6c",
+    textAlign: "center",
+  } as CSSProperties,
+
   wireItem: {
     padding: "20px 40px",
     borderBottom: "1px solid #2a2a26",
@@ -495,6 +506,14 @@ export default async function Home({
         {/* Recall strip */}
         <RecallStrip recalls={recalls} total={recalls.length} />
       </section>
+
+      {/* Source / no-claims disclaimer — sits between Proof strip and the Wire */}
+      <aside style={s.dataDisclaimer} aria-label="Source and disclaimer">
+        Recall information shown is published by the U.S. FDA via openFDA.
+        Novique.ai LLC presents this information without modification or
+        commentary and makes no independent claims about the products,
+        manufacturers, or events listed.
+      </aside>
 
       {/* The Wire — live recall feed */}
       <section style={s.wireSection}>
