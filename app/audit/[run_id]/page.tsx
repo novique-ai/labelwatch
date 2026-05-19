@@ -137,6 +137,10 @@ export default async function AuditRunPage({
           ⌘P to save as PDF ·{" "}
           <Link href={`/account${tokenQ}`} className="hover:text-ink underline underline-offset-2">
             Back to dashboard
+          </Link>{" "}
+          ·{" "}
+          <Link href="/references" className="hover:text-ink underline underline-offset-2">
+            Scored against /references
           </Link>
         </footer>
       </div>

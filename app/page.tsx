@@ -810,7 +810,16 @@ export default async function Home({
 
       <footer style={s.footer} className="site-footer">
         <span>© {new Date().getFullYear()} Novique.ai · LabelWatch</span>
-        <span>label.watch · labelwatch.app</span>
+        <span>
+          <Link href="/references" style={{ color: "inherit" }}>
+            References
+          </Link>
+          {" · "}
+          <Link href="/contact" style={{ color: "inherit" }}>
+            Contact
+          </Link>
+          {" · label.watch · labelwatch.app"}
+        </span>
       </footer>
 
       {/* Responsive styles — hero collapse at <960px, strip scroll on mobile */}

@@ -12,7 +12,12 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { CUSTOMER_COOKIE_NAME, decodeCustomerCookie } from "@/lib/customer-session";
 import { getSupabase } from "@/lib/supabase";
-import { getRulesForCategories, CATEGORY_DISPLAY_NAMES } from "@/lib/amazon-tic-rules";
+import {
+  getRulesForCategories,
+  CATEGORY_DISPLAY_NAMES,
+  RULESET_LAST_REVIEWED,
+  AMAZON_TIC_POLICY_URL,
+} from "@/lib/amazon-tic-rules";
 import type { IngredientCategory } from "@/types/database.types";
 import type { CSSProperties } from "react";
 import TicAssessor from "./tic-assessor";
@@ -219,8 +224,21 @@ export default async function CompliancePage() {
       <h1 style={s.h1}>Amazon TIC Compliance</h1>
       <p style={s.sub}>
         {categories.length > 0
-          ? `${totalRules} rules across ${categories.length + 1} category groups · ${criticalCount} critical · Last reviewed 2026-05-09`
+          ? `${totalRules} rules across ${categories.length + 1} category groups · ${criticalCount} critical · Last reviewed ${RULESET_LAST_REVIEWED}`
           : "Configure your product categories in account settings to see applicable rules."}
+        {" · "}
+        <a
+          href={AMAZON_TIC_POLICY_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: "inherit", textDecoration: "underline" }}
+        >
+          Amazon policy ↗
+        </a>
+        {" · "}
+        <a href="/references" style={{ color: "inherit", textDecoration: "underline" }}>
+          All references
+        </a>
       </p>
 
       {isPro && (

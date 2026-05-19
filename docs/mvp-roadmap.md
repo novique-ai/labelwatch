@@ -1,6 +1,6 @@
 ---
 owner: Clayton
-last_reviewed: 2026-05-09
+last_reviewed: 2026-05-19
 source_of_truth_for: LabelWatch product MVP scope — what's in MVP1 vs MVP2
 supersedes: null
 ---
@@ -49,7 +49,8 @@ supersedes: null
 | ↳ Multi-user org seats (Team, max 5) | `infrastructure-cin7` | ✅ Shipped 2026-05-07 — organizations/memberships/invitations, /account/team |
 | ↳ Custom alert rules (Team, keyword-based) | `infrastructure-yo7k` | ✅ Shipped 2026-05-07 — alert_rules, lib/custom-rules.ts, /account/rules |
 | ↳ Team REST API + API keys | `infrastructure-2mkx` | ✅ Shipped 2026-05-07 — api_keys, GET /api/v1/matches, /account/apikeys |
-| SEO foundations | `infrastructure-t3w4` | ⬜ Ships WITH relaunch commit |
+| SEO foundations | `infrastructure-t3w4` | ✅ Shipped 2026-05-09 (sitemap, robots, JSON-LD, noindex). 2026-05-19: Bing + GSC verified, sitemaps submitted. |
+| Authoritative references page (`/references`) | `infrastructure-gnq4` | 🟡 Shipped 2026-05-19 — `/references` page + footer link + /account/compliance + /audit/[run_id] linkbacks. Pending: citation audit (u297) + URL monitor (m7fn). |
 | Marketing launch burst | `infrastructure-gc8o` | ⬜ Post-relaunch |
 
 ---

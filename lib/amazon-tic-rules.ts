@@ -1,9 +1,13 @@
 // Amazon 2026 TIC (Third-party Ingredient Compliance) ruleset for dietary supplements.
-// Bead infrastructure-2e17.
+// Bead infrastructure-2e17. Citation audit pending in infrastructure-u297.
 //
 // Rules are organized by IngredientCategory and mirror the category selector
 // customers configure at /onboard. Updated manually when Amazon publishes
 // policy changes — last reviewed 2026-05-09.
+//
+// Canonical sources (see /references for the customer-facing list):
+//   - https://sellercentral.amazon.com/help/hub/reference/external/201829010
+//   - https://sellercentral.amazon.com/help/hub/reference/external/GNHU43TN2RHER9BQ
 //
 // severity:
 //   critical — listing takedown risk if non-compliant
@@ -11,6 +15,14 @@
 //   minor    — best-practice; non-compliance unlikely to trigger enforcement alone
 
 import type { IngredientCategory } from "@/types/database.types";
+
+export const RULESET_LAST_REVIEWED = "2026-05-09";
+
+export const AMAZON_TIC_POLICY_URL =
+  "https://sellercentral.amazon.com/help/hub/reference/external/201829010";
+
+export const AMAZON_FAST_TRACK_URL =
+  "https://sellercentral.amazon.com/help/hub/reference/external/GNHU43TN2RHER9BQ";
 
 export type RuleSeverity = "critical" | "major" | "minor";
 export type RuleStatus = "pass" | "fail" | "warn" | "unknown";
