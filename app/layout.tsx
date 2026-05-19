@@ -36,6 +36,11 @@ export const metadata: Metadata = {
     description:
       "FDA gives you 5 keywords. We give you the whole shelf. From $39/mo.",
   },
+  verification: {
+    other: {
+      "msvalidate.01": "06FF0234AA26EBCBC82F6F3E299479A5",
+    },
+  },
 };
 
 export default function RootLayout({
