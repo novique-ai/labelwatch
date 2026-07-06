@@ -17,6 +17,7 @@ import {
   CATEGORY_DISPLAY_NAMES,
   RULESET_LAST_REVIEWED,
   AMAZON_TIC_POLICY_URL,
+  AMAZON_TIC_POLICY_REFERENCE,
 } from "@/lib/amazon-tic-rules";
 import type { IngredientCategory } from "@/types/database.types";
 import type { CSSProperties } from "react";
@@ -64,6 +65,7 @@ const s = {
     fontSize: 13,
     color: "var(--color-text-muted)",
     marginBottom: 36,
+    lineHeight: 1.6,
   } as CSSProperties,
   sectionRule: {
     display: "flex",
@@ -224,8 +226,10 @@ export default async function CompliancePage() {
       <h1 style={s.h1}>Amazon TIC Compliance</h1>
       <p style={s.sub}>
         {categories.length > 0
-          ? `${totalRules} rules across ${categories.length + 1} category groups · ${criticalCount} critical · Last reviewed ${RULESET_LAST_REVIEWED}`
+          ? `${totalRules} rules across ${categories.length + 1} category groups · ${criticalCount} critical`
           : "Configure your product categories in account settings to see applicable rules."}
+        {" · "}
+        Compliance ruleset last reviewed {RULESET_LAST_REVIEWED}
         {" · "}
         <a
           href={AMAZON_TIC_POLICY_URL}
@@ -239,6 +243,8 @@ export default async function CompliancePage() {
         <a href="/references" style={{ color: "inherit", textDecoration: "underline" }}>
           All references
         </a>
+        <br />
+        <span>{AMAZON_TIC_POLICY_REFERENCE}</span>
       </p>
 
       {isPro && (

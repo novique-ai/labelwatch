@@ -7,7 +7,12 @@ import { useState } from "react";
 import type { CSSProperties } from "react";
 import type { IngredientCategory } from "@/types/database.types";
 import type { TicAssessmentResult, TicRuleResult } from "@/lib/tic-assessment";
-import { CATEGORY_DISPLAY_NAMES } from "@/lib/amazon-tic-rules";
+import {
+  AMAZON_TIC_POLICY_REFERENCE,
+  AMAZON_TIC_POLICY_URL,
+  CATEGORY_DISPLAY_NAMES,
+  RULESET_LAST_REVIEWED,
+} from "@/lib/amazon-tic-rules";
 
 type Props = {
   categories: IngredientCategory[];
@@ -47,6 +52,7 @@ const s = {
     fontSize: 11,
     color: "var(--color-text-muted)",
     marginBottom: 12,
+    lineHeight: 1.5,
   } as CSSProperties,
   btn: {
     background: "var(--color-signal-red)",
@@ -126,6 +132,15 @@ const s = {
     background: "var(--color-bg-base)",
     borderRadius: 3,
     borderLeft: "3px solid var(--color-signal-red)",
+  } as CSSProperties,
+  ruleRef: {
+    fontSize: 10,
+    color: "var(--color-text-muted)",
+    margin: "6px 0 0",
+    paddingLeft: 22,
+    fontFamily: "var(--font-jetbrains), monospace",
+    lineHeight: 1.5,
+    overflowWrap: "anywhere" as const,
   } as CSSProperties,
   resultCard: (status: string): CSSProperties => ({
     border: `1px solid ${
@@ -216,6 +231,17 @@ export default function TicAssessor({ categories }: Props) {
         {categories.length > 0
           ? ` Assessed against rules for: ${categoryNames}.`
           : " Configure your product categories in account settings for category-specific rules."}
+        <br />
+        Compliance ruleset last reviewed {RULESET_LAST_REVIEWED};{" "}
+        <a
+          href={AMAZON_TIC_POLICY_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: "inherit", textDecoration: "underline" }}
+        >
+          Amazon policy
+        </a>
+        . {AMAZON_TIC_POLICY_REFERENCE}
       </p>
 
       <textarea
@@ -410,6 +436,7 @@ function ResultCard({ rule }: { rule: TicRuleResult }) {
           → {rule.recommendation}
         </p>
       )}
+      <p style={s.ruleRef}>{rule.reference}</p>
     </div>
   );
 }

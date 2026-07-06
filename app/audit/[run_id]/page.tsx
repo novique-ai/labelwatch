@@ -8,6 +8,11 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getRunWithFindings } from "@/lib/audit-runs";
 import { verifyAuditToken } from "@/lib/audit-token";
+import {
+  AMAZON_TIC_POLICY_REFERENCE,
+  AMAZON_TIC_POLICY_URL,
+  RULESET_LAST_REVIEWED,
+} from "@/lib/amazon-tic-rules";
 import { getSupabase } from "@/lib/supabase";
 import type { AuditFindingRow, AuditSeverity } from "@/types/database.types";
 
@@ -142,6 +147,17 @@ export default async function AuditRunPage({
           <Link href="/references" className="hover:text-ink underline underline-offset-2">
             Scored against /references
           </Link>
+          <br />
+          Compliance ruleset last reviewed {RULESET_LAST_REVIEWED} ·{" "}
+          <a
+            href={AMAZON_TIC_POLICY_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-ink underline underline-offset-2"
+          >
+            Amazon policy
+          </a>{" "}
+          · {AMAZON_TIC_POLICY_REFERENCE}
         </footer>
       </div>
     </main>

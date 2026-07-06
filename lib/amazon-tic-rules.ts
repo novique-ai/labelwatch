@@ -1,11 +1,11 @@
 // Amazon 2026 TIC (Third-party Ingredient Compliance) ruleset for dietary supplements.
-// Bead infrastructure-2e17. Citation audit pending in infrastructure-u297.
+// Beads infrastructure-2e17 and infrastructure-u297.
 //
 // Rules are organized by IngredientCategory and mirror the category selector
 // customers configure at /onboard. Updated manually when Amazon publishes
-// policy changes — last reviewed 2026-05-09.
+// policy changes. Citation audit last reviewed 2026-07-06.
 //
-// Canonical sources (see /references for the customer-facing list):
+// Canonical Amazon policy sources (Seller Central auth may be required):
 //   - https://sellercentral.amazon.com/help/hub/reference/external/201829010
 //   - https://sellercentral.amazon.com/help/hub/reference/external/GNHU43TN2RHER9BQ
 //
@@ -16,13 +16,16 @@
 
 import type { IngredientCategory } from "@/types/database.types";
 
-export const RULESET_LAST_REVIEWED = "2026-05-09";
+export const RULESET_LAST_REVIEWED = "2026-07-06";
+export const last_reviewed = RULESET_LAST_REVIEWED;
 
 export const AMAZON_TIC_POLICY_URL =
   "https://sellercentral.amazon.com/help/hub/reference/external/201829010";
 
 export const AMAZON_FAST_TRACK_URL =
   "https://sellercentral.amazon.com/help/hub/reference/external/GNHU43TN2RHER9BQ";
+
+export const AMAZON_TIC_POLICY_REFERENCE = `Amazon Seller Central Dietary Supplements policy (${AMAZON_TIC_POLICY_URL}, last reviewed ${RULESET_LAST_REVIEWED})`;
 
 export type RuleSeverity = "critical" | "major" | "minor";
 export type RuleStatus = "pass" | "fail" | "warn" | "unknown";
@@ -48,7 +51,7 @@ export const GENERAL_RULES: TicRule[] = [
     title: "Certificate of Analysis from accredited lab",
     requirement:
       "A current CoA from an ISO 17025-accredited third-party laboratory must be on file. Amazon may request it at any time.",
-    reference: "Amazon Seller Central — Dietary Supplements listing policy §2.1",
+    reference: AMAZON_TIC_POLICY_REFERENCE,
     severity: "critical",
   },
   {
@@ -56,7 +59,7 @@ export const GENERAL_RULES: TicRule[] = [
     title: "CoA dated within 12 months",
     requirement:
       "The CoA must have been issued within the last 12 months. CoAs older than 12 months do not satisfy Amazon's currency requirement.",
-    reference: "Amazon Dietary Supplements policy §2.1",
+    reference: AMAZON_TIC_POLICY_REFERENCE,
     severity: "critical",
   },
   {
@@ -64,7 +67,7 @@ export const GENERAL_RULES: TicRule[] = [
     title: "Label ingredients match CoA",
     requirement:
       "Every ingredient declared on the Supplement Facts Panel must appear in the CoA at the stated quantity (±10%). Unlisted actives are a critical violation.",
-    reference: "21 CFR 101.36; Amazon supplement policy §3.2",
+    reference: `21 CFR 101.36; ${AMAZON_TIC_POLICY_REFERENCE}`,
     severity: "critical",
   },
   {
@@ -80,7 +83,7 @@ export const GENERAL_RULES: TicRule[] = [
     title: "No unauthorized disease claims",
     requirement:
       "Listing copy must not diagnose, cure, treat, mitigate, or prevent any disease. Structure/function claims are allowed with an FTC-style disclaimer. Disease claims trigger Amazon removal and potential FDA warning letter.",
-    reference: "21 CFR 101.93; FTC Act §5; Amazon supplement policy §4",
+    reference: `21 CFR 101.93; FTC Act §5; ${AMAZON_TIC_POLICY_REFERENCE}`,
     severity: "critical",
   },
   {
@@ -88,7 +91,7 @@ export const GENERAL_RULES: TicRule[] = [
     title: "No New Dietary Ingredient (NDI) without FDA notification",
     requirement:
       "Any ingredient not marketed in the US as a dietary supplement before October 15, 1994 requires a pre-market NDI notification to FDA. Marketing without it is an adulteration risk.",
-    reference: "21 CFR 190.6; DSHEA §8",
+    reference: "21 CFR 190.6; 21 U.S.C. 350b",
     severity: "critical",
   },
   {
@@ -96,7 +99,7 @@ export const GENERAL_RULES: TicRule[] = [
     title: "cGMP manufacturing compliance",
     requirement:
       "Product must be manufactured in an FDA-registered facility following current Good Manufacturing Practices (21 CFR Part 111). Amazon may request a facility registration number.",
-    reference: "21 CFR Part 111",
+    reference: `21 CFR Part 111; ${AMAZON_TIC_POLICY_REFERENCE}`,
     severity: "major",
   },
   {
@@ -104,7 +107,7 @@ export const GENERAL_RULES: TicRule[] = [
     title: "No FDA-prohibited ingredients",
     requirement:
       "Product must not contain any ingredient currently prohibited by FDA enforcement action (e.g., DMAA, androstenedione, ephedra alkaloids, aristolochic acid, kava in high doses).",
-    reference: "FDA Dietary Supplement Ingredient Advisory List",
+    reference: "FDA Information on Select Dietary Supplement Ingredients and Other Substances",
     severity: "critical",
   },
 ];
@@ -114,10 +117,10 @@ export const CATEGORY_RULES: Partial<Record<IngredientCategory, TicRule[]>> = {
   protein: [
     {
       id: "PRO-001",
-      title: "Complete amino acid profile on CoA",
+      title: "Protein content substantiated by appropriate testing",
       requirement:
-        "CoA must include a full amino acid panel confirming protein content by amino acid sum, not just Kjeldahl nitrogen. Nitrogen-to-protein conversion must be disclosed.",
-      reference: "Amazon protein supplement requirements; AOAC 994.12",
+        "CoA should substantiate protein content with an appropriate validated method. Where amino acid profile is used, nitrogen-to-protein conversion should be disclosed.",
+      reference: "21 CFR 111.70; AOAC 994.12",
       severity: "critical",
     },
     {
@@ -125,7 +128,7 @@ export const CATEGORY_RULES: Partial<Record<IngredientCategory, TicRule[]>> = {
       title: "No protein spiking",
       requirement:
         "Non-protein nitrogen compounds (taurine, glycine, creatine, urea, melamine) must not be listed in the serving-size stack in a way that inflates the declared protein content. Individual amino acids added for protein inflation are a deceptive-practice flag.",
-      reference: "FTC Act §5; Amazon supplement policy §4.1",
+      reference: "FTC Act §5; 21 CFR 101.36",
       severity: "critical",
     },
     {
@@ -133,14 +136,14 @@ export const CATEGORY_RULES: Partial<Record<IngredientCategory, TicRule[]>> = {
       title: "Heavy metals tested (Prop 65 limits)",
       requirement:
         "CoA must include heavy metal results for lead, arsenic, cadmium, and mercury. Lead must be <0.5 µg/serving (California Prop 65 warning threshold for reproductive toxicity).",
-      reference: "California Prop 65; Amazon supplement CoA requirements",
+      reference: `California Prop 65; 21 CFR 111.70; ${AMAZON_TIC_POLICY_REFERENCE}`,
       severity: "major",
     },
     {
       id: "PRO-004",
       title: "Banned substance screen (sport-positioned products)",
       requirement:
-        "If the listing targets athletes or uses sport-performance language, a banned substance screen (NSF Certified for Sport or Informed Sport) is required. Absence is a major risk for professional-athlete customers.",
+        "If the listing targets athletes or uses sport-performance language, a banned substance screen (NSF Certified for Sport or Informed Sport) is strongly recommended for professional-athlete customers.",
       reference: "WADA Prohibited List; NSF/ANSI 173",
       severity: "major",
     },
@@ -152,23 +155,23 @@ export const CATEGORY_RULES: Partial<Record<IngredientCategory, TicRule[]>> = {
       title: "Potency within ±10% of label claim",
       requirement:
         "Third-party CoA must confirm every vitamin at ≥90% of label potency. Over-potency (>120% label) also warrants disclosure for fat-soluble vitamins (A, D, E, K) due to toxicity risk.",
-      reference: "USP <2040>; Amazon supplement CoA requirements §2.3",
+      reference: `21 CFR 111.70; USP <2040>; ${AMAZON_TIC_POLICY_REFERENCE}`,
       severity: "critical",
     },
     {
       id: "VIT-002",
-      title: "Iron products: child-resistant packaging if ≥30 mg/serving",
+      title: "Iron products: child-resistant packaging if ≥250 mg/package",
       requirement:
-        "If the product contains ≥30 mg elemental iron per serving, child-resistant packaging is federally required (PPPA). Non-compliant packaging is a recall risk.",
-      reference: "16 CFR Part 1700; PPPA §4",
+        "If the product package contains ≥250 mg elemental iron in regulated concentrations, child-resistant packaging is federally required under PPPA. Non-compliant packaging is a recall risk.",
+      reference: "16 CFR 1700.14(a)(13)",
       severity: "critical",
     },
     {
       id: "VIT-003",
       title: "Vitamin D toxicity warning for high-dose products",
       requirement:
-        "Products providing >4,000 IU vitamin D per serving must include a caution against exceeding the tolerable upper intake level. High-dose D3 is an FDA surveillance priority.",
-      reference: "NIH ODS Vitamin D Fact Sheet; FDA dietary supplement guidance",
+        "Products providing >4,000 IU vitamin D per serving should include a caution against exceeding the tolerable upper intake level.",
+      reference: "NIH ODS Vitamin D Fact Sheet",
       severity: "major",
     },
     {
@@ -176,7 +179,7 @@ export const CATEGORY_RULES: Partial<Record<IngredientCategory, TicRule[]>> = {
       title: "USP or NSF certification for quality assurance",
       requirement:
         "Third-party quality certification (USP Verified, NSF Contents Certified, or equivalent) is not required but is strongly preferred by Amazon for vitamin products and significantly reduces takedown risk.",
-      reference: "Amazon supplement quality program guidance",
+      reference: `Amazon Seller Central Compliance Fast-Track program (${AMAZON_FAST_TRACK_URL}, last reviewed ${RULESET_LAST_REVIEWED}); ${AMAZON_TIC_POLICY_REFERENCE}`,
       severity: "minor",
     },
   ],
@@ -187,7 +190,7 @@ export const CATEGORY_RULES: Partial<Record<IngredientCategory, TicRule[]>> = {
       title: "Heavy metals tested against Prop 65 limits",
       requirement:
         "Mineral products (especially calcium, magnesium, iron, zinc) must test for heavy metal contaminants. Lead <0.5 µg/daily serving; arsenic <10 µg/daily serving for non-seafood sources.",
-      reference: "California Prop 65; FDA dietary supplement compliance program",
+      reference: "California Prop 65; 21 CFR 111.70; FDA Compliance Program 7321.008",
       severity: "critical",
     },
     {
@@ -203,7 +206,7 @@ export const CATEGORY_RULES: Partial<Record<IngredientCategory, TicRule[]>> = {
       title: "Bioavailability form substantiated if claimed",
       requirement:
         "Claims like 'highly bioavailable' or 'chelated for superior absorption' must be supported by published research cited in the listing or available on request.",
-      reference: "FTC Act §5; FDA structure/function guidance",
+      reference: "FTC Act §5; FDA Structure/Function Claims guidance",
       severity: "minor",
     },
   ],
@@ -213,16 +216,16 @@ export const CATEGORY_RULES: Partial<Record<IngredientCategory, TicRule[]>> = {
       id: "HRB-001",
       title: "Botanical species identity verified",
       requirement:
-        "CoA must confirm botanical species identity via HPTLC, DNA barcoding, or equivalent method. Adulteration with substitute species is a major Amazon enforcement trigger.",
-      reference: "USP <565>; FDA botanical ingredient guidance",
+        "CoA must confirm botanical species identity via HPTLC, DNA barcoding, or equivalent method. Adulteration with substitute species is a major quality and safety risk.",
+      reference: "USP <565>; 21 CFR 111.70",
       severity: "critical",
     },
     {
       id: "HRB-002",
       title: "Pesticide residue testing",
       requirement:
-        "Herbal ingredients must be tested for pesticide residues. Exceeding EU MRL limits (Amazon's international standard) is a critical violation. Multi-residue screen preferred.",
-      reference: "EU Regulation 396/2005; Amazon import supplement requirements",
+        "Herbal ingredients should be covered by contaminant specifications and tested where pesticide residue risk is reasonably likely. Multi-residue screen preferred.",
+      reference: "21 CFR 111.70; EU Regulation 396/2005",
       severity: "critical",
     },
     {
@@ -230,7 +233,7 @@ export const CATEGORY_RULES: Partial<Record<IngredientCategory, TicRule[]>> = {
       title: "Heavy metals tested",
       requirement:
         "Botanical extracts must include CoA heavy metal data. Lead <0.5 µg/daily serving. Some botanicals (Ayurvedic herbs) are known high-risk sources.",
-      reference: "California Prop 65; FDA compliance program 7321.002",
+      reference: "California Prop 65; FDA Compliance Program 7321.008",
       severity: "critical",
     },
     {
@@ -238,7 +241,7 @@ export const CATEGORY_RULES: Partial<Record<IngredientCategory, TicRule[]>> = {
       title: "No FDA-prohibited botanicals",
       requirement:
         "Must not contain aristolochic acid (Aristolochia spp.), kava in non-traditional preparations, pennyroyal oil, or other FDA-actioned botanicals.",
-      reference: "FDA Import Alert 66-38; FDA advisory list",
+      reference: "FDA Import Alert 54-10; FDA Information on Select Dietary Supplement Ingredients and Other Substances",
       severity: "critical",
     },
     {
@@ -246,7 +249,7 @@ export const CATEGORY_RULES: Partial<Record<IngredientCategory, TicRule[]>> = {
       title: "Solvent disclosure for extracts",
       requirement:
         "Extraction solvents must comply with ICH Q3C residual solvent limits. CO2 extracts are preferred. Hexane residuals must be declared if >1 ppm.",
-      reference: "ICH Q3C; FDA guidance for industry",
+      reference: "ICH Q3C; 21 CFR 111.70",
       severity: "major",
     },
   ],
@@ -256,8 +259,8 @@ export const CATEGORY_RULES: Partial<Record<IngredientCategory, TicRule[]>> = {
       id: "PRB-001",
       title: "CFU count guaranteed at time of expiry",
       requirement:
-        "Label must state CFU count at end of shelf life, not at manufacture. 'Guaranteed at time of manufacture' is insufficient and Amazon flags it. CoA must confirm viability through expiry via stability data.",
-      reference: "ISAPP consensus statement on probiotics; Amazon supplement policy",
+        "Label should state CFU count at end of shelf life, not at manufacture. CoA or stability data should confirm viability through expiry.",
+      reference: "ISAPP consensus statement on probiotics; 21 CFR 111.70",
       severity: "critical",
     },
     {
@@ -281,7 +284,7 @@ export const CATEGORY_RULES: Partial<Record<IngredientCategory, TicRule[]>> = {
       title: "Storage conditions properly labeled",
       requirement:
         "Refrigerated probiotics must be clearly labeled as requiring refrigeration. Shelf-stable products must have stability data supporting ambient storage through expiry.",
-      reference: "21 CFR 101.9; ISAPP probiotic shelf-life guidance",
+      reference: "21 CFR 101.36; ISAPP probiotic shelf-life guidance",
       severity: "minor",
     },
   ],
@@ -289,18 +292,18 @@ export const CATEGORY_RULES: Partial<Record<IngredientCategory, TicRule[]>> = {
   sports_nutrition: [
     {
       id: "SPT-001",
-      title: "Banned substance screen required",
+      title: "Banned substance screen for sport-positioned products",
       requirement:
-        "Any product positioned for sport performance must have a current banned substance screen. NSF Certified for Sport or Informed Sport certification is the Amazon-accepted standard. Non-certified products targeting athletes risk category suppression.",
+        "Any product positioned for sport performance should have a current banned substance screen. NSF Certified for Sport or Informed Sport certification is the recognized athlete-safety standard.",
       reference: "NSF/ANSI 173; Informed Sport program; WADA Prohibited List",
-      severity: "critical",
+      severity: "major",
     },
     {
       id: "SPT-002",
       title: "No DMAA, DMHA, BMPEA, or AMP Citrate",
       requirement:
-        "These stimulants are FDA-prohibited in dietary supplements. Their presence in any sports nutrition product is a critical violation resulting in immediate listing removal and potential product seizure.",
-      reference: "FDA Dietary Supplement Ingredient Advisory List; 21 CFR 402(f)",
+        "These stimulants are FDA-prohibited in dietary supplements. Their presence in any sports nutrition product is a critical violation that may result in regulatory action.",
+      reference: "FDA Information on Select Dietary Supplement Ingredients and Other Substances; 21 U.S.C. 342(f)",
       severity: "critical",
     },
     {
@@ -308,7 +311,7 @@ export const CATEGORY_RULES: Partial<Record<IngredientCategory, TicRule[]>> = {
       title: "Stimulant dosages declared",
       requirement:
         "Total caffeine per serving must be listed in mg. Additional stimulants (synephrine, yohimbine, guarana, green tea EGCG) must be individually declared with amounts.",
-      reference: "FDA proposed rule on caffeine; Amazon supplement label requirements",
+      reference: "21 CFR 101.36; FDA Guidance on Highly Concentrated Caffeine in Dietary Supplements",
       severity: "major",
     },
     {
@@ -327,14 +330,14 @@ export const CATEGORY_RULES: Partial<Record<IngredientCategory, TicRule[]>> = {
       title: "No ephedra alkaloids",
       requirement:
         "Ephedrine, pseudoephedrine, and all ephedra alkaloid sources are federally banned in dietary supplements. Any product containing them is adulterated and subject to seizure.",
-      reference: "21 CFR 119.1; FDA Final Rule 2004",
+      reference: "21 CFR 119.1",
       severity: "critical",
     },
     {
       id: "WGT-002",
       title: "No DNP (2,4-Dinitrophenol)",
       requirement:
-        "DNP is an imminent health hazard. FDA has issued multiple warning letters; any product found to contain it will be seized and the seller account suspended.",
+        "DNP is an imminent health hazard. FDA has issued multiple warning letters; any product found to contain it may be subject to seizure or other regulatory action.",
       reference: "FDA Import Alert; FDA warning letters 2019-2023",
       severity: "critical",
     },
@@ -342,7 +345,7 @@ export const CATEGORY_RULES: Partial<Record<IngredientCategory, TicRule[]>> = {
       id: "WGT-003",
       title: "Weight loss efficacy claims substantiated",
       requirement:
-        "Claims like 'clinically proven to burn fat' or 'lose X lbs in Y days' require competent and reliable scientific evidence (FTC standard: RCT in humans for the specific product). Unsupported claims are an FTC/Amazon enforcement trigger.",
+        "Claims like 'clinically proven to burn fat' or 'lose X lbs in Y days' require competent and reliable scientific evidence (FTC standard: RCT in humans for the specific product). Unsupported claims are an FTC enforcement trigger.",
       reference: "FTC Act §5; FTC Dietary Supplements guidance 2001",
       severity: "critical",
     },
@@ -351,7 +354,7 @@ export const CATEGORY_RULES: Partial<Record<IngredientCategory, TicRule[]>> = {
       title: "No DMAA, phentermine analogs, or lorcaserin derivatives",
       requirement:
         "Stimulant-based weight loss compounds that mimic prescription drugs are FDA-prohibited. This includes synthetic compounds marketed as 'natural' alternatives.",
-      reference: "FDA Dietary Supplement Ingredient Advisory List",
+      reference: "FDA Information on Select Dietary Supplement Ingredients and Other Substances; FDA Health Fraud Product Database",
       severity: "critical",
     },
     {
@@ -370,15 +373,15 @@ export const CATEGORY_RULES: Partial<Record<IngredientCategory, TicRule[]>> = {
       title: "L-form designation disclosed",
       requirement:
         "Amino acid form (L- vs D-) must be specified on the label where relevant. L-forms are bioactive; D-forms are not absorbed and may be misleading if undisclosed.",
-      reference: "21 CFR 101.36; FDA amino acid labeling guidance",
+      reference: "21 CFR 101.36",
       severity: "major",
     },
     {
       id: "AMN-002",
       title: "Purity ≥98% standard",
       requirement:
-        "Pharmaceutical-grade amino acids (≥98% purity by HPLC) are the Amazon-preferred standard. Lower purity products should include CoA disclosing actual purity.",
-      reference: "USP amino acid monographs; Amazon supplement quality program",
+        "Amino acid products should include CoA documentation disclosing actual purity and test method. Lower purity products should not imply pharmaceutical-grade quality.",
+      reference: "21 CFR 111.70; USP amino acid monographs",
       severity: "minor",
     },
     {
@@ -386,7 +389,7 @@ export const CATEGORY_RULES: Partial<Record<IngredientCategory, TicRule[]>> = {
       title: "Heavy metals tested",
       requirement:
         "Synthetic amino acids (especially from Chinese APIs) have elevated heavy metal risk. CoA must include lead, arsenic, cadmium, mercury results.",
-      reference: "California Prop 65; FDA supplement compliance",
+      reference: "California Prop 65; 21 CFR 111.70; FDA Compliance Program 7321.008",
       severity: "major",
     },
   ],
@@ -396,7 +399,7 @@ export const CATEGORY_RULES: Partial<Record<IngredientCategory, TicRule[]>> = {
       id: "OMG-001",
       title: "EPA/DHA content verified by independent testing",
       requirement:
-        "Stated EPA and DHA milligrams must be confirmed by third-party GC or HPLC testing within ±10% of label. Overstated omega-3 content is a common Amazon enforcement finding.",
+        "Stated EPA and DHA milligrams must be confirmed by third-party GC or HPLC testing within ±10% of label. Overstated omega-3 content is a label-accuracy and substantiation risk.",
       reference: "CRN/AHPA omega-3 monograph; IFOS program standards",
       severity: "critical",
     },
@@ -404,7 +407,7 @@ export const CATEGORY_RULES: Partial<Record<IngredientCategory, TicRule[]>> = {
       id: "OMG-002",
       title: "Oxidation markers within limits",
       requirement:
-        "CoA must include peroxide value (PV <5 mEq/kg) and anisidine value (AV <20) for fish and krill oils. Oxidized oils are a quality and safety concern Amazon actively monitors.",
+        "CoA must include peroxide value (PV <5 mEq/kg) and anisidine value (AV <20) for fish and krill oils. Oxidized oils are a quality and safety concern.",
       reference: "GOED omega-3 quality standards; IFOS protocol",
       severity: "major",
     },
@@ -432,15 +435,15 @@ export const CATEGORY_RULES: Partial<Record<IngredientCategory, TicRule[]>> = {
       title: "Total caffeine per serving declared in mg",
       requirement:
         "All caffeine sources (anhydrous, green tea, guarana, yerba mate) must be individually listed with amounts and totaled. FDA is actively pursuing undisclosed caffeine in supplements.",
-      reference: "FDA proposed caffeine rule; 21 CFR 101.36",
+      reference: "FDA Guidance on Highly Concentrated Caffeine in Dietary Supplements; 21 CFR 101.36",
       severity: "critical",
     },
     {
       id: "PRW-002",
       title: "No DMAA, DMHA, or BMPEA",
       requirement:
-        "These stimulants are FDA-prohibited. Pre-workout is the highest-scrutiny category for prohibited stimulants. Presence results in immediate listing removal and likely account action.",
-      reference: "FDA DMAA enforcement; FDA Dietary Supplement Ingredient Advisory List",
+        "These stimulants are FDA-prohibited. Pre-workout is a high-scrutiny category for prohibited stimulants. Presence may result in regulatory action.",
+      reference: "FDA DMAA enforcement; FDA Information on Select Dietary Supplement Ingredients and Other Substances",
       severity: "critical",
     },
     {
@@ -448,23 +451,23 @@ export const CATEGORY_RULES: Partial<Record<IngredientCategory, TicRule[]>> = {
       title: "Synephrine and yohimbine individually declared",
       requirement:
         "Bitter orange (synephrine) and yohimbe (yohimbine) must be listed with mg per serving. Undisclosed synephrine is a common FDA warning letter trigger. Yohimbine has cardiovascular risk requiring a warning for sensitive populations.",
-      reference: "FDA yohimbe guidance; FTC supplement warning 2019",
+      reference: "21 CFR 101.36; NIH NCCIH Yohimbe safety summary",
       severity: "major",
     },
     {
       id: "PRW-004",
       title: "Warning label for cardiovascular risk",
       requirement:
-        "Pre-workout products with total caffeine >200 mg/serving or stimulant stacks must carry a warning: 'Not intended for individuals with heart conditions. Consult a physician before use.'",
-      reference: "FDA dietary supplement labeling guidance; Amazon supplement policy",
+        "Pre-workout products with high caffeine or stimulant stacks should carry a clear cardiovascular-risk warning and physician-consult language for sensitive populations.",
+      reference: "FDA Guidance on Highly Concentrated Caffeine in Dietary Supplements; NIH NCCIH Yohimbe safety summary",
       severity: "major",
     },
     {
       id: "PRW-005",
       title: "Banned substance screen",
       requirement:
-        "Given sport-adjacent positioning, a banned substance screen via NSF or Informed Sport is strongly recommended. Amazon suppression risk is elevated for uncertified pre-workout in the sport category.",
-      reference: "NSF/ANSI 173; Amazon sports supplement requirements",
+        "Given sport-adjacent positioning, a banned substance screen via NSF or Informed Sport is strongly recommended for athlete safety and retailer diligence.",
+      reference: "NSF/ANSI 173; Informed Sport program; WADA Prohibited List",
       severity: "major",
     },
   ],
@@ -474,8 +477,8 @@ export const CATEGORY_RULES: Partial<Record<IngredientCategory, TicRule[]>> = {
       id: "CHD-001",
       title: "Child-resistant packaging",
       requirement:
-        "All children's supplement products are subject to PPPA child-resistant packaging requirements. Products with iron ≥30 mg/serving have a federal mandate; others should comply as best practice.",
-      reference: "16 CFR Part 1700; PPPA §4",
+        "Children's supplement products that contain ≥250 mg elemental iron per package in regulated concentrations require child-resistant packaging. For other children's supplements, child-resistant packaging is a risk-reduction best practice, not a federal mandate.",
+      reference: "16 CFR 1700.14(a)(13)",
       severity: "critical",
     },
     {
@@ -483,15 +486,15 @@ export const CATEGORY_RULES: Partial<Record<IngredientCategory, TicRule[]>> = {
       title: "Age-appropriate dosing with age range on label",
       requirement:
         "Label must specify the age range for which the product is intended and provide weight-adjusted dosing if applicable. Products for children <2 years require physician-consult language.",
-      reference: "21 CFR 101.36; FDA pediatric supplement guidance",
+      reference: "21 CFR 101.36",
       severity: "critical",
     },
     {
       id: "CHD-003",
-      title: "Lead <5 µg/day (California Prop 65 children's threshold)",
+      title: "Lead below Prop 65 MADL unless warning provided",
       requirement:
-        "California Prop 65 sets a maximum daily lead exposure of 0.5 µg for adults and 5 µg/day for children's supplements. CoA must confirm compliance.",
-      reference: "California Prop 65; OEHHA children's lead threshold",
+        "California Prop 65 sets a lead reproductive-toxicity safe harbor level of 0.5 µg/day. CoA should confirm compliance or the product should carry any required warning.",
+      reference: "California Prop 65; OEHHA lead safe harbor level",
       severity: "critical",
     },
     {
@@ -499,7 +502,7 @@ export const CATEGORY_RULES: Partial<Record<IngredientCategory, TicRule[]>> = {
       title: "No adult-dosage stimulants or high-potency fat-solubles",
       requirement:
         "No caffeine, synephrine, or other stimulants. Vitamin A ≤2500 IU/day and Vitamin D ≤1000 IU/day for children <8 years without physician oversight language.",
-      reference: "NIH ODS pediatric DRIs; FDA supplement labeling guidance",
+      reference: "NIH ODS pediatric DRIs; 21 CFR 101.36",
       severity: "critical",
     },
     {
@@ -507,7 +510,7 @@ export const CATEGORY_RULES: Partial<Record<IngredientCategory, TicRule[]>> = {
       title: "Allergen labeling for top-9 allergens",
       requirement:
         "FASTER Act requires declaration of all top-9 allergens (milk, eggs, fish, shellfish, tree nuts, peanuts, wheat, soybeans, sesame) if present. This is especially important for children's products.",
-      reference: "FASTER Act 2021; 21 CFR 101.4",
+      reference: "FASTER Act 2021; 21 U.S.C. 343(w); 21 CFR 101.4",
       severity: "major",
     },
   ],
