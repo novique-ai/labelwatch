@@ -43,15 +43,15 @@ When all Must-pass items are PASS: change verdict to **CLEAR TO MARKET** and rec
 
 ### M1 — Alert pipeline alive in production (`infra-psc1`)
 
-- [ ] **M1.1** UptimeRobot (or equivalent) fires **GET** (not HEAD-only) to:
-  - `/api/cron/poll?cron_secret=…` every ≤5 min  
-  - `/api/cron/match?cron_secret=…` every ≤5 min  
-  - `/api/cron/deliver?cron_secret=…` every ≤1–5 min  
-  - `/api/cron/digest` daily (Vercel cron `0 9 * * *` or external)
-- [ ] **M1.2** `poller_runs` shows recent `status=ok` (last 15 min)
-- [ ] **M1.3** `matcher_runs` shows at least one successful run **after** the fix date (not stuck at 2026-05-11)
-- [ ] **M1.4** A new or reprocessed recall produces `delivery_jobs` with terminal `sent` (or honest `dead_letter` with operator-visible reason)
-- [ ] **M1.5** End-to-end proof: one real channel (email or Slack) for a known test profile receives an alert within the tier’s cadence claim
+- [x] **M1.1** UptimeRobot (or equivalent) fires **GET** (not HEAD-only) to:
+  - `/api/cron/poll?cron_secret=…` every ≤5 min — **PASS** (UR + poller_runs)
+  - `/api/cron/match?cron_secret=…` every ≤5 min — **PASS** via clay-blade `labelwatch-cron.timer` (UR match monitor still unverified)
+  - `/api/cron/deliver?cron_secret=…` every ≤1–5 min — **PASS** via same timer
+  - `/api/cron/digest` daily (Vercel cron `0 9 * * *` or external) — still verify after next 09:00 UTC
+- [x] **M1.2** `poller_runs` shows recent `status=ok` (last 15 min)
+- [x] **M1.3** `matcher_runs` shows at least one successful run **after** the fix date (not stuck at 2026-05-11) — run `d8f8ded7…` 2026-07-15
+- [x] **M1.4** A new or reprocessed recall produces `delivery_jobs` with terminal `sent` — 8 jobs `sent` 2026-07-15
+- [ ] **M1.5** End-to-end proof: one real channel (email or Slack) for a known test profile receives an alert within the tier’s cadence claim — **confirm inbox/Slack for mark@how3ll.net**
 
 **Evidence log:**
 
