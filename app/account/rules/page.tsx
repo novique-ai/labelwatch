@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 
-export const metadata: Metadata = { robots: { index: false, follow: false } };
+export const metadata: Metadata = {
+  title: "Rules — LabelWatch",
+  robots: { index: false, follow: false },
+};
 
 // /account/rules — custom alert rule management. Team only. Bead infrastructure-yo7k.
 

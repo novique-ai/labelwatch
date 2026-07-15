@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 
-export const metadata: Metadata = { robots: { index: false, follow: false } };
+export const metadata: Metadata = {
+  title: "Onboard — LabelWatch",
+  robots: { index: false, follow: false },
+};
 
 // /onboard — post-Stripe-Checkout profile collection.
 // Server Component: reads session_id from the URL (Stripe appends

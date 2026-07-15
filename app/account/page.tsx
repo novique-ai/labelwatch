@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 
-export const metadata: Metadata = { robots: { index: false, follow: false } };
+export const metadata: Metadata = {
+  title: "Account — LabelWatch",
+  robots: { index: false, follow: false },
+};
 
 // /account — customer dashboard. Bead infrastructure-5ncn.
 //
@@ -24,6 +27,12 @@ import { getStripe, isValidTier } from "@/lib/stripe";
 import { getSupabase } from "@/lib/supabase";
 import { TIER_HISTORY_DAYS, historyCutoffISO, getDeliveryCadence } from "@/lib/tier-limits";
 import { getOrgForCustomer } from "@/lib/organizations";
+import {
+  dedupeMatchesByRecall,
+  isInactiveSubscriptionStatus,
+  redactWebhookDestination,
+  type DashboardMatchRow,
+} from "@/lib/dashboard-matches";
 import AddChannelForm from "./add-channel-form";
 import ChannelRowActions from "./channel-row-actions";
 import ChannelSeverityControl from "./channel-severity-control";
@@ -65,19 +74,7 @@ type ChannelRow = {
   severity_filter: { min_class: "I" | "II" | "III" } | null;
 };
 
-type RecentMatchRow = {
-  id: string;
-  status: string;
-  severity_class: string;
-  matched_value: string;
-  sent_at: string | null;
-  created_at: string;
-  recall: {
-    recall_number: string;
-    firm_name_raw: string;
-    product_description: string | null;
-  } | null;
-};
+type RecentMatchRow = DashboardMatchRow;
 
 async function resolveCustomerId(searchParams: { session_id?: string; t?: string }): Promise<string | null> {
   // 1a. Audit token — explicit identity; beats ambient cookie.
@@ -166,10 +163,12 @@ async function loadDashboardData(customerId: string) {
   const tierForHistory = isValidTier(customer.tier) ? customer.tier : "starter";
   const cutoff = historyCutoffISO(tierForHistory);
 
+  // Fetch extra per-channel rows, then collapse to one row per recall so the
+  // dashboard isn't flooded (email+slack = 2 jobs per match).
   let matchQuery = supabase
     .from("delivery_jobs")
     .select(
-      "id, status, severity_class, matched_value, sent_at, created_at, recall:recalls(recall_number, firm_name_raw, product_description)",
+      "id, status, severity_class, matched_value, sent_at, created_at, recall_id, recall:recalls(recall_number, firm_name_raw, product_description)",
     )
     .eq("customer_id", dataCustomerId);
   if (cutoff !== null) {
@@ -177,8 +176,11 @@ async function loadDashboardData(customerId: string) {
   }
   const { data: matchesRaw } = await matchQuery
     .order("created_at", { ascending: false })
-    .limit(20);
-  const matches: RecentMatchRow[] = (matchesRaw ?? []) as unknown as RecentMatchRow[];
+    .limit(80);
+  const matches: RecentMatchRow[] = dedupeMatchesByRecall(
+    (matchesRaw ?? []) as unknown as Parameters<typeof dedupeMatchesByRecall>[0],
+    20,
+  );
 
   // Hidden-history count for the upsell line: total matches that exist for
   // this customer OUTSIDE the visible window. Skip the count query entirely
@@ -220,7 +222,14 @@ async function loadDashboardData(customerId: string) {
       console.error("/account: stripe subscription lookup failed:", err);
     }
 
-    const origin = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.label.watch";
+    let origin = (
+      process.env.LABELWATCH_PUBLIC_URL ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      "https://www.label.watch"
+    ).replace(/\/$/, "");
+    if (origin === "https://label.watch" || origin === "http://label.watch") {
+      origin = "https://www.label.watch";
+    }
     try {
       const portal = await stripe.billingPortal.sessions.create({
         customer: customer.stripe_customer_id,
@@ -468,12 +477,18 @@ export default async function AccountPage({
     historyDays === null ? "all time" : historyDays >= 365 ? "12 months" : `${historyDays} days`;
 
   const tierLabel = customer.tier.charAt(0).toUpperCase() + customer.tier.slice(1);
+  const inactive = isInactiveSubscriptionStatus(subscriptionStatus);
+  const pastDue = subscriptionStatus === "past_due";
   const statusBadge =
     subscriptionStatus === "trialing"
       ? `${tierLabel} · trial${trialEndsAt ? ` ends ${trialEndsAt}` : ""}`
       : subscriptionStatus === "active"
         ? `${tierLabel} · active`
-        : `${tierLabel} · ${subscriptionStatus}`;
+        : subscriptionStatus === "canceled" || subscriptionStatus === "cancelled"
+          ? `${tierLabel} · canceled`
+          : pastDue
+            ? `${tierLabel} · past due`
+            : `${tierLabel} · ${subscriptionStatus}`;
 
   const signingSecret = params.signing_secret;
   const slackAdded = params.slack_added;
@@ -570,10 +585,26 @@ export default async function AccountPage({
         <div style={s.banner}>
           <p style={s.bannerLabel}>Subscription</p>
           <h2 style={s.bannerTitle}>{statusBadge}</h2>
+          {(inactive || pastDue) && (
+            <p
+              style={{
+                fontSize: 13,
+                color: "var(--color-text-secondary)",
+                lineHeight: 1.55,
+                margin: "0 0 16px",
+                maxWidth: 640,
+              }}
+            >
+              {inactive
+                ? "Your subscription is canceled. Watch settings and match history stay visible, but new alerts stop until you reactivate billing."
+                : "Payment is past due. Update your card to keep realtime alerts flowing."}{" "}
+              Use <strong>Manage subscription</strong> to reactivate or update payment.
+            </p>
+          )}
           <p style={s.bannerMeta}>
             {portalUrl ? (
               <a href={portalUrl} style={s.manageBtn}>
-                Manage subscription →
+                {inactive ? "Reactivate subscription →" : "Manage subscription →"}
               </a>
             ) : (
               <span style={s.manageBtnDisabled}>Manage subscription unavailable</span>
@@ -708,7 +739,7 @@ export default async function AccountPage({
               </p>
             ) : (
               matches.map((m) => (
-                <div key={m.id} style={s.matchRow}>
+                <div key={m.recall?.recall_number ?? m.id} style={s.matchRow}>
                   <span style={severityStyle(m.severity_class)}>{m.severity_class}</span>
                   <div>
                     <div style={{ marginBottom: 4 }}>{m.recall?.firm_name_raw ?? "(firm unknown)"}</div>
@@ -717,7 +748,19 @@ export default async function AccountPage({
                     </div>
                   </div>
                   <div style={{ fontSize: 11, color: "var(--color-text-muted)", textAlign: "right" }}>
-                    {m.status === "sent" ? "delivered" : m.status === "digest_pending" ? "pending digest" : m.status}
+                    {m.display_status === "sent"
+                      ? "delivered"
+                      : m.display_status === "digest_pending"
+                        ? "pending digest"
+                        : m.display_status}
+                    {m.channel_count > 1 ? (
+                      <>
+                        <br />
+                        <span style={{ opacity: 0.75 }}>
+                          {m.channel_count} channels
+                        </span>
+                      </>
+                    ) : null}
                     <br />
                     {new Date(m.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                   </div>
@@ -779,10 +822,11 @@ function channelDestinationLabel(ch: ChannelRow): string {
   const cfg = ch.config as Record<string, unknown>;
   if (ch.type === "email") return String(cfg.address ?? "");
   if (ch.type === "slack" || ch.type === "teams") {
-    const url = String(cfg.webhook_url ?? "");
-    return url.length > 60 ? `${url.slice(0, 50)}…${url.slice(-10)}` : url;
+    return redactWebhookDestination(String(cfg.webhook_url ?? ""));
   }
-  if (ch.type === "http") return String(cfg.url ?? "");
+  if (ch.type === "http") {
+    return redactWebhookDestination(String(cfg.url ?? ""));
+  }
   return "";
 }
 

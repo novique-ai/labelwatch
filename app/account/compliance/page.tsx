@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 
-export const metadata: Metadata = { robots: { index: false, follow: false } };
+export const metadata: Metadata = {
+  title: "Compliance — LabelWatch",
+  robots: { index: false, follow: false },
+};
 
 // /account/compliance — Amazon TIC compliance checklist + AI SKU assessment.
 // Bead infrastructure-2e17.

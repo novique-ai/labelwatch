@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 
-export const metadata: Metadata = { robots: { index: false, follow: false } };
+export const metadata: Metadata = {
+  title: "Team — LabelWatch",
+  robots: { index: false, follow: false },
+};
 
 // /account/team — Team org seat management. Bead infrastructure-cin7.
 // Shows member list to all Team members; invite form to org owner only.
