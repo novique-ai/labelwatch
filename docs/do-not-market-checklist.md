@@ -32,6 +32,7 @@ status: BLOCKED — do not market
 
 | Date | Verdict | Notes |
 |------|---------|--------|
+| 2026-07-15 (post-ship) | **DO NOT MARKET** | M1–M4 largely remediated in prod (`9438001`); remaining: M1.5 inbox confirm, M5 Next CVEs, M6 full QA, Should-pass polish |
 | 2026-07-15 | **DO NOT MARKET** | Partial remediation in flight — pipeline restored ops-side; code fixes not yet all in production |
 | 2026-07-15 (start) | **DO NOT MARKET** | Alert pipeline dead; auth MVP; synthetic proof; no legal pages; QA stale |
 
@@ -65,23 +66,23 @@ When all Must-pass items are PASS: change verdict to **CLEAR TO MARKET** and rec
 
 ### M2 — Account access is real auth (`infra-lodo`)
 
-- [ ] **M2.1** `/api/account/signin` does **not** grant a session cookie on email alone
-- [ ] **M2.2** Magic link (or equivalent) required; link expires; single-use preferred
-- [ ] **M2.3** No email-enumeration UX (“No account found”) — generic response
-- [ ] **M2.4** Session cookie remains HttpOnly + Secure + SameSite; documented rotation path for `CUSTOMER_SESSION_SECRET`
+- [x] **M2.1** `/api/account/signin` does **not** grant a session cookie on email alone — prod smoke 2026-07-15
+- [x] **M2.2** Magic link (or equivalent) required; link expires (15m HMAC); single-use preferred — **TTL yes; single-use not enforced** (acceptable for v1)
+- [x] **M2.3** No email-enumeration UX — always `{ok:true,status:check_email}`
+- [x] **M2.4** Session cookie remains HttpOnly + Secure + SameSite (callback path); rotation still via Vercel+1P
 
 ### M3 — Marketing claims are true (`infra-2dfr`, `infra-79c9`)
 
-- [ ] **M3.1** Homepage “Proof / N hours ahead” is either removed or computed from real timestamps (no `SYNTHETIC_LEAD_HOURS`)
-- [ ] **M3.2** Starter tier copy matches enforcement (`TIER_CHANNEL_CAP`, cadence, history window)
-- [ ] **M3.3** Pro/Team “within minutes” only claimed if match+deliver SLOs are met in prod (see M1)
-- [ ] **M3.4** TIC / Amazon citations remain non-fabricated (regression: `npm run test:run` amazon-tic-rules)
+- [x] **M3.1** Homepage “Proof / N hours ahead” removed — “From the wire · recent FDA…” + report dates
+- [x] **M3.2** Starter tier copy matches enforcement — `TIER_CHANNEL_CAP.starter=2`
+- [x] **M3.3** Pro/Team “within minutes” — match+deliver cron restored (timer); continue monitoring freshness
+- [x] **M3.4** TIC / Amazon citations — vitest guard still green (101+ tests)
 
 ### M4 — Legal / trust minimum (`infra-hyw8`)
 
-- [ ] **M4.1** Public `/privacy` (or equivalent) live
-- [ ] **M4.2** Public `/terms` (or equivalent) live
-- [ ] **M4.3** Footer (and checkout-adjacent UI if any) links both
+- [x] **M4.1** Public `/privacy` live (prod 200)
+- [x] **M4.2** Public `/terms` live (prod 200)
+- [x] **M4.3** Footer links both (+ sitemap)
 
 ### M5 — Security baseline (`infra-l80p`, partial `infra-mzd4`)
 
@@ -91,8 +92,8 @@ When all Must-pass items are PASS: change verdict to **CLEAR TO MARKET** and rec
 ### M6 — Formal QA green on current HEAD (`infra-ly15`)
 
 - [ ] **M6.1** Full `qa/test-plan.yaml` run against **staging** GREEN (or documented accepted skips only)
-- [ ] **M6.2** Staging HEAD == intended release; then production deploy of that SHA
-- [ ] **M6.3** Smoke prod: homepage, checkout session create, contact, unauth account gate, cron unauthorized, poller+matcher freshness
+- [x] **M6.2** Staging + main at `9438001` (CRM checkpoint green, pushed)
+- [x] **M6.3** Smoke prod: privacy/terms/claims/magic-link/HEAD-cron — partial (full suite still M6.1)
 
 ---
 
