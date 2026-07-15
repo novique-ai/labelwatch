@@ -177,7 +177,7 @@ function SectionRule({ label }: { label: string }) {
 export default async function CompliancePage() {
   const cookieStore = await cookies();
   const customerId = decodeCustomerCookie(cookieStore.get(CUSTOMER_COOKIE_NAME)?.value);
-  if (!customerId) redirect("/");
+  if (!customerId) redirect("/?account=signin");
 
   const supabase = getSupabase();
 
@@ -187,7 +187,7 @@ export default async function CompliancePage() {
     .eq("id", customerId)
     .maybeSingle();
 
-  if (!customer) redirect("/");
+  if (!customer) redirect("/?account=signin");
 
   const { data: profile } = await supabase
     .from("customer_profiles")

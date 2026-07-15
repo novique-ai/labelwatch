@@ -19,9 +19,10 @@ export async function GET(request: Request) {
   return handle(request);
 }
 
-// HEAD for liveness probes — no-op, mirrors poll/match/deliver pattern.
-export async function HEAD() {
-  return new Response(null, { status: 200 });
+// HEAD must execute the same path as GET (secret required). No-op HEAD
+// 200 masked missing schedules during the 2026-05→07 outage (infra-psc1).
+export async function HEAD(request: Request) {
+  return handle(request);
 }
 
 async function handle(request: Request) {

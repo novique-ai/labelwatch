@@ -83,7 +83,7 @@ describe("checkBrandCap — team", () => {
 
 describe("TIER_CHANNEL_CAP + TIER_ALLOWED_CHANNEL_TYPES", () => {
   it("locks the documented per-tier limits", () => {
-    expect(TIER_CHANNEL_CAP.starter).toBe(1);
+    expect(TIER_CHANNEL_CAP.starter).toBe(2);
     expect(TIER_CHANNEL_CAP.pro).toBe(3);
     expect(TIER_CHANNEL_CAP.team).toBeNull();
   });
@@ -131,15 +131,21 @@ describe("checkChannelAdd — starter", () => {
   it("allows the first email channel", () => {
     const v = checkChannelAdd("starter", "email", 0);
     expect(v.allowed).toBe(true);
+    if (v.allowed) expect(v.remaining).toBe(1);
+  });
+
+  it("allows email + slack (cap=2)", () => {
+    const v = checkChannelAdd("starter", "slack", 1);
+    expect(v.allowed).toBe(true);
     if (v.allowed) expect(v.remaining).toBe(0);
   });
 
-  it("rejects a second channel (cap=1)", () => {
-    const v = checkChannelAdd("starter", "email", 1);
+  it("rejects a third channel (cap=2)", () => {
+    const v = checkChannelAdd("starter", "email", 2);
     expect(v.allowed).toBe(false);
     if (!v.allowed && v.reason === "cap_exceeded") {
-      expect(v.cap).toBe(1);
-      expect(v.current).toBe(1);
+      expect(v.cap).toBe(2);
+      expect(v.current).toBe(2);
     } else {
       throw new Error("expected cap_exceeded");
     }

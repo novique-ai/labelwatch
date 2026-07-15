@@ -35,17 +35,7 @@ function ClassPill({ cls }: { cls: string }) {
   );
 }
 
-// Lead times are synthetic until the LabelWatch poller emits real delivery timestamps.
-// TODO: replace with actual hours delta from poller once available.
-const SYNTHETIC_LEAD_HOURS = [71, 96, 54];
-
-function RecallCard({
-  recall,
-  leadHours,
-}: {
-  recall: Recall;
-  leadHours: number;
-}) {
+function RecallCard({ recall }: { recall: Recall }) {
   const [hovered, setHovered] = useState(false);
 
   return (
@@ -60,7 +50,7 @@ function RecallCard({
         flexDirection: "column",
         gap: 8,
         minHeight: 150,
-        cursor: "pointer",
+        cursor: "default",
         transition: "border-color 0.15s ease, background 0.15s ease",
         minWidth: 260,
       }}
@@ -75,14 +65,14 @@ function RecallCard({
         <ClassPill cls={recall.classification} />
         <span
           style={{
-            color: "#5fd07a",
+            color: "#9a9485",
             fontFamily: "var(--font-jetbrains), monospace",
             fontSize: 11,
             letterSpacing: 1,
             textTransform: "uppercase",
           }}
         >
-          +{leadHours} h ahead
+          {recall.date || "—"}
         </span>
       </div>
       <div
@@ -144,11 +134,13 @@ export default function RecallStrip({
           gap: 8,
         }}
       >
-        <span>● Proof · we caught these 71+ hours ahead of the FDA email</span>
-        <span>Showing {shown.length} of {total} · See the full wire →</span>
+        {/* Honest strip: real openFDA rows only — no synthetic lead-time claims (infra-2dfr). */}
+        <span>● From the wire · recent FDA dietary-supplement recalls</span>
+        <span>
+          Showing {shown.length} of {total}
+        </span>
       </div>
 
-      {/* Horizontal scroller on mobile, 3-col grid on desktop */}
       <div
         className="recall-cards-grid"
         style={{
@@ -158,11 +150,7 @@ export default function RecallStrip({
         }}
       >
         {shown.map((r, i) => (
-          <RecallCard
-            key={r.recallNumber || `${r.firm}-${i}`}
-            recall={r}
-            leadHours={SYNTHETIC_LEAD_HOURS[i] ?? 48}
-          />
+          <RecallCard key={r.recallNumber || `${r.firm}-${i}`} recall={r} />
         ))}
       </div>
     </div>

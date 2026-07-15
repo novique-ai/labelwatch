@@ -837,6 +837,14 @@ export default async function Home({
           <Link href="/contact" style={{ color: "inherit" }}>
             Contact
           </Link>
+          {" · "}
+          <Link href="/privacy" style={{ color: "inherit" }}>
+            Privacy
+          </Link>
+          {" · "}
+          <Link href="/terms" style={{ color: "inherit" }}>
+            Terms
+          </Link>
           {" · label.watch · labelwatch.app"}
         </span>
       </footer>

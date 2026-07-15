@@ -53,8 +53,10 @@ export function checkBrandCap(
 // and /api/slack/oauth/callback (account flow). null = unlimited.
 //
 // Bead infrastructure-gvqx.
+// Starter marketing: email digest + Slack. Cap must allow both (2), not
+// a single channel — fixed 2026-07-15 (infra-79c9).
 export const TIER_CHANNEL_CAP: Record<Tier, number | null> = {
-  starter: 1,
+  starter: 2,
   pro: 3,
   team: null,
 };

@@ -13,10 +13,11 @@ export async function GET(request: Request) {
   return handle(request);
 }
 
-// UptimeRobot HEAD checks for liveness — accept and return 200 without
-// actually running the worker. Mirror of poll/match routes.
-export async function HEAD() {
-  return new Response(null, { status: 200 });
+// UptimeRobot may probe with HEAD. Must run the same worker as GET — a
+// no-op HEAD 200 previously let monitors look green while deliver never
+// ran (prod gap 2026-05-11 → 2026-07-15, bead infra-psc1).
+export async function HEAD(request: Request) {
+  return handle(request);
 }
 
 async function handle(request: Request) {
