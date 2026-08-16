@@ -86,13 +86,13 @@ When all Must-pass items are PASS: change verdict to **CLEAR TO MARKET** and rec
 
 ### M5 — Security baseline (`infra-l80p`, partial `infra-mzd4`)
 
-- [ ] **M5.1** Production Next.js on patched release (audit clean for known high Next advisories at ship time) — **code pinned `next@16.3.1`**; flip to PASS after Vercel prod serves that release
+- [x] **M5.1** Production Next.js on patched release (audit clean for known high Next advisories at ship time) — **PASS 2026-08-16**: `next@16.3.1` at `2575006`; Vercel prod `dpl_9X8LBctZdcN7LpwPNjoSdN1sTiL2` READY; staging `dpl_Eb55UxYdy27UyGHyqHprmnsa8vhS` READY; live `/` `/privacy` `/terms` `/references` 200; homepage now serves `/_next/static/immutable/` (16.3 asset path)
 - [x] **M5.2** `npm audit --omit=dev` reviewed; no untriaged **high** in prod dependency tree without explicit accept risk note — **PASS 2026-08-16**: 0 vulns after `next@16.3.1` + `overrides.ws=8.21.3`. Remaining `vite` high is **dev-only** (Windows NTLM / `server.fs.deny`; not in prod tree).
 
 ### M6 — Formal QA green on current HEAD (`infra-ly15`)
 
 - [ ] **M6.1** Full `qa/test-plan.yaml` run against **staging** GREEN (or documented accepted skips only)
-- [x] **M6.2** Staging + main at `9438001` (CRM checkpoint green, pushed)
+- [x] **M6.2** Staging + main at `2575006` (CRM `labelwatch-local-20260816T204950Z-2575006` GREEN, pushed)
 - [x] **M6.3** Smoke prod: privacy/terms/claims/magic-link/HEAD-cron — partial (full suite still M6.1)
 
 ---
@@ -144,6 +144,7 @@ Allowed while blocked (optional, careful wording):
 | 2026-07-15 | Grok | Prod match+deliver catch-up; 1P cron secret; clay-blade 5m timer | M1 / `infra-psc1` |
 | 2026-07-15 | Grok | Code: HEAD→worker for match/deliver/digest; remove synthetic Proof hours; starter channel cap=2; magic-link sign-in; /privacy + /terms; compliance redirect | M1–M4 / `infra-lodo` `infra-2dfr` `infra-79c9` `infra-hyw8` |
 | 2026-08-16 | Grok | next 16.2.4→16.3.1 (16.2.12 still bundled postcss 8.4.31 highs); ws override 8.21.3; CRM now runs test+build; `npm audit --omit=dev` 0; vitest 113/1 skip; `next build` green | M5 / `infra-l80p` |
+| 2026-08-16 | Grok | Prod+staging Vercel READY on `2575006`; live smoke 200; M5.1 PASS | M5.1 / `infra-l80p` |
 
 ---
 
