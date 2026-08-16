@@ -16,8 +16,8 @@ CRM_REQUIRED_DEPS="jq"
 
 # Build commands (empty = skip gate)
 CRM_LINT_CMD=""
-CRM_TEST_CMD=""
-CRM_BUILD_CMD=""
+CRM_TEST_CMD="npm run test:run"
+CRM_BUILD_CMD="npm run build"
 CRM_TYPECHECK_CMD=""
 
 # Container images (name:dockerfile:context entries, empty = no images)
