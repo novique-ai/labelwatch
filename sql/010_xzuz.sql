@@ -1,6 +1,6 @@
 -- LabelWatch: cadence split — Starter daily digest, Pro+ realtime (bead infrastructure-xzuz).
--- Target: shellcorp-labelwatch Supabase project (ref ulypsprgdsasaxtjovtd).
--- Also applies to staging: shellcorp-labelwatch-test (ref luuepydfyqioluizjlml).
+-- Target: the production Supabase project.
+-- Staging: the staging Supabase project.
 --
 -- Changes:
 --   1. Add digest_window_date date NULL to delivery_jobs
@@ -8,8 +8,8 @@
 --   3. Partial index for efficient digest cron claim
 --   4. claim_digest_delivery_jobs() stored function (atomic claim)
 --
--- Staging-first: apply to luuepydfyqioluizjlml BEFORE promoting to main.
--- Apply to ulypsprgdsasaxtjovtd (prod) BEFORE the main push per staging-first doctrine.
+-- Staging-first: apply to staging BEFORE promoting to main.
+-- Apply to prod BEFORE the main push per staging-first doctrine.
 --
 -- Note on CHECK constraint name: the inline CHECK in 007_matcher.sql has no explicit
 -- name — Postgres auto-generates "delivery_jobs_status_check". This migration drops

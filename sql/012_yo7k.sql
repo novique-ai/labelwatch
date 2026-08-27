@@ -1,6 +1,6 @@
 -- LabelWatch: custom alert rules — Team keyword-based matching (bead infrastructure-yo7k).
--- Target: shellcorp-labelwatch (ref ulypsprgdsasaxtjovtd).
--- Staging: shellcorp-labelwatch-test (ref luuepydfyqioluizjlml).
+-- Target: the production Supabase project.
+-- Staging: the staging Supabase project.
 --
 -- Changes:
 --   1. alert_rules table — per-org keyword rules that supplement the standard matcher

@@ -1,5 +1,5 @@
 -- LabelWatch: matcher_runs + delivery_jobs (bead infrastructure-xv3f).
--- Target: shellcorp-labelwatch Supabase project (ref ulypsprgdsasaxtjovtd).
+-- Target: the production Supabase project.
 --
 -- Design references:
 --   Open Brain 95e3a497-5c9e-4637-a3a0-23446a678b9d — queue-architecture ADR
@@ -197,7 +197,7 @@ create policy "service_role_all_delivery_jobs"
 --
 -- Background (per docs/mvp-roadmap.md changelog 2026-04-30):
 --   The customer 8899eb1e-986f-48de-b216-f0adc9dbbba4 (smoke-sl26@example.test,
---   cus_UP4aI9so56qXjp) was created by the sl26 (audit) smoke runs and had
+--   the SL26 smoke customer) was created by the sl26 (audit) smoke runs and had
 --   onboarding_completed_at stamped without a real /onboard exercise.
 --   Phase 1 of the MVP1-relaunch sequence (2026-04-30) seeded a synthetic
 --   customer_profiles row + customer_channels (slack) row for it to verify

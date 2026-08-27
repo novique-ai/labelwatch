@@ -1,5 +1,5 @@
 -- LabelWatch: firms + recalls schema (bead infrastructure-zxv3).
--- Target: shellcorp-labelwatch Supabase project (ref ulypsprgdsasaxtjovtd).
+-- Target: the production Supabase project.
 -- RLS: service_role only. App hits these with SUPABASE_SERVICE_ROLE_KEY.
 --
 -- FORWARD-COMPAT: today we ingest only dietary-supplement records (filtered at

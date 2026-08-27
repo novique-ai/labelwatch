@@ -1,6 +1,6 @@
 -- LabelWatch: Team REST API + API keys (bead infrastructure-2mkx).
--- Target: shellcorp-labelwatch (ref ulypsprgdsasaxtjovtd).
--- Staging: shellcorp-labelwatch-test (ref luuepydfyqioluizjlml).
+-- Target: the production Supabase project.
+-- Staging: the staging Supabase project.
 --
 -- Changes:
 --   1. api_keys table — per-org long-lived tokens for programmatic access

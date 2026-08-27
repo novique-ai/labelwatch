@@ -1,6 +1,6 @@
 // Hand-authored Supabase row types for the tables touched in MVP1.
 // Full CLI-generated `supabase gen types` adoption is MVP2 (see
-// docs/mvp-roadmap.md). Keep this in sync with sql/*.sql migrations.
+// the internal MVP roadmap). Keep this in sync with sql/*.sql migrations.
 
 import type Stripe from "stripe";
 
@@ -152,7 +152,7 @@ export type CheckoutSession = Stripe.Checkout.Session;
 
 // -----------------------------------------------------------------------------
 // Listing Copy Audit (lcaudit) — bead infrastructure-sl26.
-// See sql/006_audit.sql + docs/mvp-roadmap.md.
+// See sql/006_audit.sql + the internal MVP roadmap.
 // -----------------------------------------------------------------------------
 
 export type AuditStatus = "pending" | "running" | "complete" | "failed";

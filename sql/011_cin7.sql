@@ -1,6 +1,6 @@
 -- LabelWatch: multi-user org seats — Team up to 5 seats (bead infrastructure-cin7).
--- Target: shellcorp-labelwatch (ref ulypsprgdsasaxtjovtd).
--- Staging: shellcorp-labelwatch-test (ref luuepydfyqioluizjlml).
+-- Target: the production Supabase project.
+-- Staging: the staging Supabase project.
 --
 -- Changes:
 --   1. organizations table

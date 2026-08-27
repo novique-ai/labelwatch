@@ -1,5 +1,5 @@
 -- LabelWatch: vlm7 delivery pipeline scaffolding (bead infrastructure-vlm7).
--- Target: shellcorp-labelwatch Supabase project (ref ulypsprgdsasaxtjovtd).
+-- Target: the production Supabase project.
 --
 -- Design references:
 --   Open Brain 95e3a497-5c9e-4637-a3a0-23446a678b9d — queue-architecture ADR

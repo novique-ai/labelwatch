@@ -1,5 +1,5 @@
 -- LabelWatch: Listing Copy Audit (lcaudit) — bead infrastructure-sl26.
--- Per docs/mvp-roadmap.md "Capability: Listing Copy Audit (lcaudit)".
+-- Per the internal MVP roadmap, "Capability: Listing Copy Audit (lcaudit)".
 --
 -- audit_runs:     one row per submitted audit (SFP image + listing copy).
 -- audit_findings: one row per flagged drift between SFP and listing.
